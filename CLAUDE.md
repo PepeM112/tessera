@@ -156,10 +156,10 @@ layouts/             -> Built-in views as JSON
 | File                         | Git     | Use                                                                                                                       |
 | ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `docs/README.md`             | public  | Index of docs. One doc per area (skeleton, modules, IPC, terminal), about the current state                               |
-| `.claude/DECISIONS.md`       | private | Each technical choice: decision, why, trade-off. Add an entry when you make a non-obvious choice                          |
+| `.claude/local/DECISIONS.md` | private | Each technical choice: decision, why, trade-off. Add an entry when you make a non-obvious choice                          |
 | `.claude/AUDIT.md`           | private | Project audit rules                                                                                                       |
-| `.claude/TODO.md`            | private | Short list of work to do next                                                                                             |
-| `.claude/IDEAS.md`           | private | Open questions and ideas. Move to `DECISIONS.md` when decided                                                             |
+| `.claude/local/TODO.md`      | private | Short list of work to do next                                                                                             |
+| `.claude/local/IDEAS.md`     | private | Open questions and ideas. Move to `DECISIONS.md` when decided                                                             |
 | `.claude/local/TASK_<ID>.md` | private | Living file for one task (`/plan-task`, `/solve-task`, `/end-task`). Context dump with the exact next step at session end |
 
 Git ignores all of `.claude/`. Never put a link to a `.claude/` file in a public doc.
@@ -178,7 +178,7 @@ Used by `/plan-task`, `/solve-task`, the audit and `/end-task`. **These rules ov
   - `scope` (optional): the area, lowercase. Examples: `skeleton`, `terminal`, `ipc`, `modules`, a module name (`github`), `deps`.
   - `summary`: imperative ("add", not "added"), lowercase start, no period. Full title max 72 characters.
   - Examples: `feat(skeleton): add tiling layout with saved views (TES-2)`, `chore: set up electron-vite, lint and docs (TES-1)`.
-- **CLOSEOUT** (`/end-task`): line 1 is `# Closeout: <ID> — <type>(<scope>): <summary>`. In `## Commit description`, the first line uses the PR title format above, **not** `[TASK] <ID> ...`. The body is 2–5 lines: what changed and why.
+- **CLOSEOUT** (`/end-task`): line 1 is `# Closeout: <ID> — <PR title>`, with the full PR title above (`(TES-<n>)` included): `create-pr` uses it as it is. In `## Commit description`, the first line is the same PR title. The body is 2–5 lines: what changed and why.
 - **Format command**: `npm run format:branch`, then `make check`.
 - **Audit**: `/audit-nextjs` on the files of the branch, with the rules in `.claude/AUDIT.md`. Skip the Next.js-only checks.
 - **Merge**: squash merge on GitHub. The user pushes, opens the PR and merges.
