@@ -2,7 +2,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { parseLayout, type Layout } from "./layout";
+import { lengthToPx, type LengthContext } from "./size";
 import { Workspace } from "./workspace";
+
+import type { ReactNode } from "react";
 
 const noteRender = vi.fn();
 
@@ -28,32 +31,51 @@ const RESIZABLE: Layout = {
   },
 };
 
-// jsdom has no layout engine: each tile measures 100px and each split 208px (two tiles and an 8px gap).
+const FRAME_WIDTH = 800;
+
+interface FrameProps {
+  children?: ReactNode;
+}
+
+// The tests run in real Chromium. A fixed size makes the pixel values known: with the default padding (8px) and
+// gap (8px), a split of two shares has two tiles of 388px (776px for the 2 shares). An arrow key moves the divider by
+// 10px (10 * 2 / 776 = 0.026 share). A tile keeps at least 48px (48 * 2 / 776 = 0.124 share), so Home and End stop there.
+function Frame({ children }: FrameProps) {
+  return <div style={{ width: FRAME_WIDTH, height: 400 }}>{children}</div>;
+}
+
+function renderInFrame(ui: ReactNode) {
+  return render(ui, { wrapper: Frame });
+}
+
 beforeEach(() => {
   noteRender.mockClear();
-  vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ width: 100, height: 100 }));
-  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(208);
 });
 
 afterEach(() => {
   cleanup();
-  vi.restoreAllMocks();
 });
 
-function growOf(label: string): string | undefined {
-  return screen.getByText(label).closest<HTMLElement>(".tessera-tile")?.style.flexGrow;
+function tileOf(label: string): HTMLElement {
+  const tile = screen.getByText(label).closest<HTMLElement>(".tessera-tile");
+  if (!tile) throw new Error(`No tile for ${label}`);
+  return tile;
+}
+
+function growOf(label: string): string {
+  return tileOf(label).style.flexGrow;
 }
 
 describe("Workspace", () => {
   it("renders each module with the layout props as React props", () => {
-    render(<Workspace layout={RESIZABLE} modules={MODULES} />);
+    renderInFrame(<Workspace layout={RESIZABLE} modules={MODULES} />);
     expect(screen.getByText("Left")).toBeTruthy();
     expect(screen.getByText("Right")).toBeTruthy();
   });
 
   it("shows an unknown module id, with the default or a custom label", () => {
     const layout: Layout = { root: { module: "calendar" } };
-    const { rerender } = render(<Workspace layout={layout} modules={MODULES} />);
+    const { rerender } = renderInFrame(<Workspace layout={layout} modules={MODULES} />);
     expect(screen.getByText("Unknown module: calendar")).toBeTruthy();
 
     rerender(<Workspace layout={layout} modules={MODULES} labels={{ unknownModule: "Módulo desconocido" }} />);
@@ -64,13 +86,13 @@ describe("Workspace", () => {
   });
 
   it("does not find methods of Object.prototype as modules", () => {
-    render(<Workspace layout={{ root: { module: "toString" } }} modules={MODULES} />);
+    renderInFrame(<Workspace layout={{ root: { module: "toString" } }} modules={MODULES} />);
     expect(screen.getByText("Unknown module: toString")).toBeTruthy();
   });
 
   it("sets the theme as CSS variables and a tile background inline", () => {
     const layout: Layout = { root: { module: "note", props: { label: "Only" }, background: "transparent" } };
-    const { container } = render(
+    const { container } = renderInFrame(
       <Workspace layout={layout} modules={MODULES} theme={{ gap: 12, background: "black", radius: "4px" }} />,
     );
     const root = container.querySelector<HTMLElement>(".tessera-workspace");
@@ -82,12 +104,12 @@ describe("Workspace", () => {
 
   it("gives a fixed split no separator", () => {
     const layout: Layout = { root: { ...RESIZABLE.root, resizable: false } };
-    render(<Workspace layout={layout} modules={MODULES} />);
+    renderInFrame(<Workspace layout={layout} modules={MODULES} />);
     expect(screen.queryByRole("separator")).toBeNull();
   });
 
   it("gives a resizable split a labelled separator", () => {
-    render(<Workspace layout={RESIZABLE} modules={MODULES} labels={{ divider: "Cambiar tamaño" }} />);
+    renderInFrame(<Workspace layout={RESIZABLE} modules={MODULES} labels={{ divider: "Cambiar tamaño" }} />);
     const separator = screen.getByRole("separator", { name: "Cambiar tamaño" });
     expect(separator.getAttribute("aria-orientation")).toBe("vertical");
     expect(separator.getAttribute("aria-valuenow")).toBe("50");
@@ -96,30 +118,31 @@ describe("Workspace", () => {
 
   it("resizes with the arrow keys and Home, and sends each change", () => {
     const handleLayoutChange = vi.fn<(layout: Layout) => void>();
-    render(<Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />);
+    renderInFrame(<Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />);
     const separator = screen.getByRole("separator");
 
     fireEvent.keyDown(separator, { key: "ArrowRight" });
-    expect(growOf("Left")).toBe("1.1");
+    expect(growOf("Left")).toBe("1.026");
     expect(handleLayoutChange).toHaveBeenLastCalledWith({
       root: {
         ...RESIZABLE.root,
-        children: [expect.objectContaining({ size: 1.1 }), expect.objectContaining({ size: 0.9 })],
+        children: [expect.objectContaining({ size: 1.026 }), expect.objectContaining({ size: 0.974 })],
       },
     });
 
     fireEvent.keyDown(separator, { key: "Home" });
-    expect(growOf("Left")).toBe("0.48");
+    expect(growOf("Left")).toBe("0.124");
     fireEvent.keyDown(separator, { key: "ArrowUp" });
     expect(handleLayoutChange).toHaveBeenCalledTimes(2);
   });
 
   it("resets to the layout sizes on double-click", () => {
     const handleLayoutChange = vi.fn<(layout: Layout) => void>();
-    render(<Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />);
+    renderInFrame(<Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />);
     const separator = screen.getByRole("separator");
 
     fireEvent.keyDown(separator, { key: "End" });
+    expect(growOf("Left")).toBe("1.876");
     fireEvent.doubleClick(separator);
     expect(growOf("Left")).toBe("1");
     expect(handleLayoutChange).toHaveBeenLastCalledWith(RESIZABLE);
@@ -127,14 +150,14 @@ describe("Workspace", () => {
 
   it("drags without a module render and sends the layout once at the end", () => {
     const handleLayoutChange = vi.fn<(layout: Layout) => void>();
-    render(<Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />);
+    renderInFrame(<Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />);
     const rendersBefore = noteRender.mock.calls.length;
     const separator = screen.getByRole("separator");
 
     fireEvent.pointerDown(separator, { button: 0, pointerId: 1, clientX: 100 });
     fireEvent.pointerMove(document, { pointerId: 1, clientX: 120 });
     fireEvent.pointerMove(document, { pointerId: 1, clientX: 150 });
-    expect(growOf("Left")).toBe("1.5");
+    expect(growOf("Left")).toBe("1.129");
     expect(handleLayoutChange).not.toHaveBeenCalled();
 
     fireEvent.pointerUp(document, { pointerId: 1, clientX: 150 });
@@ -144,7 +167,7 @@ describe("Workspace", () => {
 
   it("sends a layout that parses and renders the same sizes", () => {
     const handleLayoutChange = vi.fn<(layout: Layout) => void>();
-    render(<Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />);
+    renderInFrame(<Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />);
     const separator = screen.getByRole("separator");
     fireEvent.pointerDown(separator, { button: 0, pointerId: 1, clientX: 100 });
     fireEvent.pointerMove(document, { pointerId: 1, clientX: 150 });
@@ -153,16 +176,56 @@ describe("Workspace", () => {
     const result = parseLayout(JSON.parse(JSON.stringify(handleLayoutChange.mock.lastCall?.[0])));
     if (!result.ok) throw new Error(JSON.stringify(result.errors));
     cleanup();
-    render(<Workspace layout={result.layout} modules={MODULES} />);
-    expect(growOf("Left")).toBe("1.5");
+    renderInFrame(<Workspace layout={result.layout} modules={MODULES} />);
+    expect(growOf("Left")).toBe("1.129");
   });
 
   it("resets the sizes when the layout prop changes", () => {
-    const { rerender } = render(<Workspace layout={RESIZABLE} modules={MODULES} />);
+    const { rerender } = renderInFrame(<Workspace layout={RESIZABLE} modules={MODULES} />);
     fireEvent.keyDown(screen.getByRole("separator"), { key: "ArrowRight" });
-    expect(growOf("Left")).toBe("1.1");
+    expect(growOf("Left")).toBe("1.026");
 
     rerender(<Workspace layout={{ ...RESIZABLE }} modules={MODULES} />);
     expect(growOf("Left")).toBe("1");
+  });
+
+  it("sizes tiles like CSS flexbox with gap, in real pixels", () => {
+    const layout: Layout = {
+      root: {
+        split: "row",
+        children: [
+          { module: "note", props: { label: "20%" }, size: "20%" },
+          { module: "note", props: { label: "12rem" }, size: "12rem" },
+          { module: "note", props: { label: "Share 1" }, size: 1 },
+          { module: "note", props: { label: "Share 2" }, size: 2 },
+          { module: "note", props: { label: "200px" }, size: "200px" },
+        ],
+      },
+    };
+    const gap = 12;
+    // The default tile border adds 2px to the flex base size of a share, so the shares are not exactly 1:2.
+    renderInFrame(<Workspace layout={layout} modules={MODULES} theme={{ gap, padding: 0, tileBorder: "none" }} />);
+
+    const rootFontPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const context: LengthContext = {
+      containerPx: FRAME_WIDTH,
+      rootFontPx,
+      fontPx: rootFontPx,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    };
+    const [percent, rem, px] = [lengthToPx("20%", context), lengthToPx("12rem", context), lengthToPx("200px", context)];
+    const freePx = FRAME_WIDTH - 4 * gap - percent - rem - px;
+    const expected: Record<string, number> = {
+      "20%": percent,
+      "12rem": rem,
+      "Share 1": freePx / 3,
+      "Share 2": (freePx * 2) / 3,
+      "200px": px,
+    };
+
+    Object.entries(expected).forEach(([label, width]) => {
+      expect(tileOf(label).getBoundingClientRect().width).toBeCloseTo(width, 1);
+    });
   });
 });

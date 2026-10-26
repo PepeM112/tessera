@@ -54,8 +54,10 @@ export function App() {
 
 ```sh
 npm install
+npx playwright install chromium   # once, for the browser tests and e2e
 make dev     # playground with example layouts and demo modules
-make check   # oxlint, eslint, type-check, tests
+make check   # oxlint, eslint, type-check, tests, e2e
+make e2e     # Playwright tests on the playground
 make build   # library build in dist/
 make pack    # build + list the files of the npm package
 ```

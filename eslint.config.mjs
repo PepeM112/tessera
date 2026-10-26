@@ -13,7 +13,7 @@ import tseslint from "typescript-eslint";
 
 export default defineConfig([
   {
-    ignores: ["dist/", "playground/dist/", "node_modules/"],
+    ignores: ["dist/", "playground/dist/", "node_modules/", "test-results/", "playwright-report/", ".vitest/"],
   },
 
   js.configs.recommended,
@@ -109,9 +109,23 @@ export default defineConfig([
   },
   prettierConfig,
 
+  // a stray `.only` skips every other test, and `make check` still passes
+  {
+    files: ["src/**/*.test.{ts,tsx}", "e2e/**/*.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "MemberExpression[property.name='only']",
+          message: "Remove `.only`: it skips every other test and `make check` still passes.",
+        },
+      ],
+    },
+  },
+
   // enforce kebab-case filenames (matches CLAUDE.md convention)
   {
-    files: ["src/**/*.{ts,tsx}", "playground/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}", "playground/**/*.{ts,tsx}", "e2e/**/*.ts"],
     plugins: { "check-file": checkFile },
     rules: {
       "check-file/filename-naming-convention": [

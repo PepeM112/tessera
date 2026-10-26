@@ -7,6 +7,8 @@ const src = resolve(import.meta.dirname, "../src");
 
 export default defineConfig({
   root: import.meta.dirname,
+  // A fixed port, because 5173 is the default of other Vite apps. The e2e tests start their own server on 5191.
+  server: { port: 5190 },
   plugins: [react()],
   resolve: {
     alias: [

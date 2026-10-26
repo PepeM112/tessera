@@ -26,8 +26,15 @@
     "lint": "oxlint",
     "lint:eslint": "eslint .",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "format:branch": "f() { FILES=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD ${BASE_BRANCH:-main})); TSX_FILES=$(echo \"$FILES\" | grep -E '\\.(ts|tsx)$'); if [ -n \"$TSX_FILES\" ]; then eslint $TSX_FILES --fix; fi; if [ -n \"$FILES\" ]; then prettier $FILES --write --ignore-unknown; fi; }; f",
     "format:branch:check": "f() { FILES=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD ${BASE_BRANCH:-main})); TSX_FILES=$(echo \"$FILES\" | grep -E '\\.(ts|tsx)$'); if [ -n \"$TSX_FILES\" ]; then eslint $TSX_FILES; fi && if [ -n \"$FILES\" ]; then prettier $FILES --check --ignore-unknown; fi; }; f"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24.15"
+    }
   },
   "peerDependencies": {
     "react": "^19.0.0",
@@ -35,12 +42,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.64.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "@vitest/browser-playwright": "^5.0.5",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.5",
@@ -52,7 +61,6 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
-    "jsdom": "^30.1.3",
     "oxlint": "^1.89.0",
     "prettier": "^3.9.10",
     "react": "^19.3.1",

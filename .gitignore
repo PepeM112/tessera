@@ -1,5 +1,8 @@
 node_modules
 dist
+test-results/
+playwright-report/
+.vitest/
 .DS_Store
 .eslintcache
 *.log*
