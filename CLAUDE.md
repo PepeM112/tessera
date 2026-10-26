@@ -37,6 +37,7 @@ src/                   -> The library. Everything in here is published (except t
   theme.ts             -> WorkspaceTheme → --tessera-* CSS variables
   styles.css           -> All library CSS (shipped as tessera/styles.css)
 playground/            -> Dev app (make dev): example layouts, demo modules, theme controls, JSON view
+e2e/                   -> Playwright tests on the playground (make e2e). Config: playwright.config.ts
 docs/                  -> Public docs, one per area
 ```
 
@@ -108,9 +109,10 @@ docs/                  -> Public docs, one per area
 
 ## Testing & Tooling
 
-- Vitest with jsdom and Testing Library (`src/**/*.test.{ts,tsx}`): pure size math, `parseLayout`, render and resize tests.
-- jsdom has no layout engine: tests mock `getBoundingClientRect` and `clientWidth`. Check real layout in the playground.
-- `make check` runs oxlint, ESLint (type-aware), type-check (lib + playground + node configs) and tests. It must pass before you hand over work.
+- Vitest has two projects. `unit` runs `src/**/*.test.ts` in Node (pure size math, `parseLayout`). `browser` runs `src/**/*.test.tsx` in real Chromium (Playwright provider) with Testing Library, so render and resize tests use real layout. Do not mock `getBoundingClientRect`.
+- Playwright e2e tests are in `e2e/` and run on the playground (Chromium only). The webServer always starts its own playground on port 5191 (`--strictPort`, no reuse), so a test never runs against another server. Run `make e2e`.
+- First time on a machine: `npx playwright install chromium`.
+- `make check` runs oxlint, ESLint (type-aware), type-check (lib + playground + e2e + node configs), unit and browser tests, and e2e. It must pass before you hand over work.
 - `make dev` starts the playground. `make build` builds the library in `dist/`. `make pack` lists the npm package files (only `dist/`, `README.md`, `package.json`).
 - Check current versions with `npm view <pkg> version` before you add a package. TypeScript stays on `~6.0` until `typescript-eslint` supports 7. ESLint stays on 9 until `eslint-plugin-import` and `jsx-a11y` support 10.
 
