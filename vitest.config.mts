@@ -1,16 +1,10 @@
-import { resolve } from "path";
-
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  resolve: {
-    alias: {
-      "@shared": resolve("src/shared"),
-      "@": resolve("src/renderer/src"),
-    },
-  },
+  plugins: [react()],
   test: {
-    environment: "node",
-    include: ["src/**/*.test.ts"],
+    environment: "jsdom",
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

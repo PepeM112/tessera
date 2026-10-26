@@ -13,7 +13,7 @@ import tseslint from "typescript-eslint";
 
 export default defineConfig([
   {
-    ignores: ["dist/", "out/", "node_modules/"],
+    ignores: ["dist/", "playground/dist/", "node_modules/"],
   },
 
   js.configs.recommended,
@@ -90,7 +90,6 @@ export default defineConfig([
         "warn",
         {
           groups: ["builtin", "external", "internal", "parent", "sibling", "index", "object", "type"],
-          pathGroups: [{ pattern: "@/**", group: "internal" }],
           "newlines-between": "always",
           alphabetize: { order: "asc", caseInsensitive: true },
         },
@@ -98,9 +97,9 @@ export default defineConfig([
       "jsx-a11y/anchor-is-valid": "warn",
     },
   },
-  // main, preload and config files run in Node, not in the browser
+  // config files run in Node, not in the browser
   {
-    files: ["src/main/**/*.ts", "src/preload/**/*.ts", "*.config.ts", "*.config.mts", "*.mjs"],
+    files: ["*.config.ts", "*.config.mts", "*.mjs", "playground/vite.config.ts"],
     languageOptions: { globals: globals.node },
   },
   // Disable type-checked rules for JS config files (no tsconfig coverage)
@@ -110,10 +109,9 @@ export default defineConfig([
   },
   prettierConfig,
 
-  // enforce kebab-case filenames across src/ (matches CLAUDE.md convention)
+  // enforce kebab-case filenames (matches CLAUDE.md convention)
   {
-    files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/components/ui/**"],
+    files: ["src/**/*.{ts,tsx}", "playground/**/*.{ts,tsx}"],
     plugins: { "check-file": checkFile },
     rules: {
       "check-file/filename-naming-convention": [

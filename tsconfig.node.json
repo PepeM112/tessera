@@ -3,11 +3,11 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "target": "es2023",
     "lib": ["ES2023"],
-    "types": ["node", "electron-vite/node"],
+    "types": ["node"],
     "skipLibCheck": true,
     "strict": true,
 
-    /* Bundler mode: electron-vite bundles main and preload */
+    /* Bundler mode */
     "module": "esnext",
     "moduleResolution": "bundler",
     "verbatimModuleSyntax": true,
@@ -18,10 +18,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
-    "paths": {
-      "@shared/*": ["./src/shared/*"]
-    }
+    "noFallthroughCasesInSwitch": true
   },
-  "include": ["electron.vite.config.ts", "vitest.config.mts", "src/main", "src/preload", "src/shared"]
+  "include": ["vite.config.ts", "vitest.config.mts", "playground/vite.config.ts"]
 }

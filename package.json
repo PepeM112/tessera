@@ -2,41 +2,45 @@
   "name": "tessera",
   "version": "0.0.0",
   "private": true,
-  "description": "Tiling desktop workspace: modules in resizable tiles, layouts saved as views",
-  "main": "./out/main/index.js",
+  "description": "React tiling layout: a Workspace renders a layout config as tiles with modules, fixed or resizable dividers",
   "author": "Jose Matas",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "types": "./dist/index.d.ts",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
-    "dev": "electron-vite dev",
-    "start": "electron-vite preview",
-    "build": "npm run type-check && electron-vite build",
-    "build:unpack": "npm run build && electron-builder --dir",
-    "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux",
+    "dev": "vite --config playground/vite.config.ts",
+    "build": "npm run type-check && vite build && tsc -p tsconfig.build.json && cp src/styles.css dist/styles.css",
     "type-check": "tsc -b --noEmit",
     "lint": "oxlint",
     "lint:eslint": "eslint .",
     "test": "vitest run",
     "format:branch": "f() { FILES=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD ${BASE_BRANCH:-main})); TSX_FILES=$(echo \"$FILES\" | grep -E '\\.(ts|tsx)$'); if [ -n \"$TSX_FILES\" ]; then eslint $TSX_FILES --fix; fi; if [ -n \"$FILES\" ]; then prettier $FILES --write --ignore-unknown; fi; }; f",
-    "format:branch:check": "f() { FILES=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD ${BASE_BRANCH:-main})); TSX_FILES=$(echo \"$FILES\" | grep -E '\\.(ts|tsx)$'); if [ -n \"$TSX_FILES\" ]; then eslint $TSX_FILES; fi && if [ -n \"$FILES\" ]; then prettier $FILES --check --ignore-unknown; fi; }; f",
-    "postinstall": "install-electron && electron-builder install-app-deps"
+    "format:branch:check": "f() { FILES=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD ${BASE_BRANCH:-main})); TSX_FILES=$(echo \"$FILES\" | grep -E '\\.(ts|tsx)$'); if [ -n \"$TSX_FILES\" ]; then eslint $TSX_FILES; fi && if [ -n \"$FILES\" ]; then prettier $FILES --check --ignore-unknown; fi; }; f"
   },
-  "dependencies": {
-    "@electron-toolkit/utils": "^4.0.0",
-    "clsx": "^2.1.1",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "tailwind-merge": "^3.7.0"
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
-    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "electron": "^45.0.0",
-    "electron-builder": "^26.15.3",
-    "electron-vite": "^6.0.0",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.5",
@@ -48,9 +52,11 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
+    "jsdom": "^30.1.3",
     "oxlint": "^1.89.0",
     "prettier": "^3.9.10",
-    "tailwindcss": "^4.3.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.0",
     "vite": "^8.3.5",

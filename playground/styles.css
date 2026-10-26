@@ -1,0 +1,152 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font:
+    14px/1.4 system-ui,
+    sans-serif;
+}
+
+.demo-app {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  height: 100%;
+  background: Canvas;
+  color: CanvasText;
+}
+
+.demo-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  padding: 12px;
+  border-right: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
+}
+
+.demo-sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.demo-nav-item {
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.demo-nav-item:hover {
+  background: color-mix(in srgb, CanvasText 8%, transparent);
+}
+
+.demo-nav-item[aria-current="true"] {
+  background: color-mix(in srgb, CanvasText 14%, transparent);
+  font-weight: 600;
+}
+
+.demo-controls {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
+  border-radius: 6px;
+}
+
+.demo-controls label {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 8px;
+}
+
+.demo-controls output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.demo-json {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  border-radius: 6px;
+  background: color-mix(in srgb, CanvasText 6%, transparent);
+  font-size: 11px;
+}
+
+.demo-main {
+  min-width: 0;
+  min-height: 0;
+}
+
+.demo-readout,
+.demo-note,
+.demo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  padding: 10px;
+}
+
+.demo-readout {
+  align-items: center;
+  justify-content: center;
+}
+
+.demo-muted {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.demo-note textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.demo-list ul {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.demo-list li {
+  padding: 4px 0;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 8%, transparent);
+}
+
+.demo-swatch {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 600;
+}
