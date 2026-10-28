@@ -44,11 +44,13 @@ export function App() {
 | **Module**    | A React component in the `modules` map. A module tile names it by id and gives it `props` |
 | **Split**     | A tile divided into child tiles in a `row` or a `column`                                  |
 | **Divider**   | The gap between two tiles in a split. Fixed by default, draggable with `resizable: true`  |
+| **Window**    | One of several modules in a module tile. The windows scroll side by side, with dots       |
+| **Spacer**    | An empty, invisible tile that holds the place of a removed tile                           |
 
 ## Docs
 
-- [Layout](docs/layout.md): the config, sizes, `defineLayout`, `parseLayout`.
-- [Workspace](docs/workspace.md): props, theme, resizing, state.
+- [Layout](docs/layout.md): the config, sizes, appearance, windows, spacer, `defineLayout`, `parseLayout`.
+- [Workspace](docs/workspace.md): props, theme, resizing, animation, `useTile`, state.
 
 ## Development
 

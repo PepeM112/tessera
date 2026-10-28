@@ -8,15 +8,15 @@ The `Workspace` fills its parent (`width: 100%; height: 100%`). Give the parent 
 
 ## Props
 
-| Prop             | Type                              | Use                                                                                     |
-| ---------------- | --------------------------------- | --------------------------------------------------------------------------------------- |
-| `layout`         | `Layout`                          | The tile tree. See [layout.md](layout.md)                                               |
-| `modules`        | `Record<string, ComponentType>`   | Module id → React component                                                             |
-| `theme`          | `WorkspaceTheme`                  | Colours and spacing. See [Theme](#theme)                                                |
-| `onLayoutChange` | `(layout: Layout) => void`        | Called with the new layout at the end of a divider drag, a divider key press or a reset |
-| `renderUnknown`  | `(moduleId: string) => ReactNode` | Renders a tile whose module id is not in `modules`. Default: "Unknown module: <id>"     |
-| `labels`         | `{ divider?, unknownModule? }`    | The text the workspace shows. English by default                                        |
-| `className`      | `string`                          | Added to the root element                                                               |
+| Prop             | Type                                    | Use                                                                                                                                                                              |
+| ---------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `layout`         | `Layout`                                | The tile tree. See [layout.md](layout.md)                                                                                                                                        |
+| `modules`        | `Record<string, ComponentType>`         | Module id → React component                                                                                                                                                      |
+| `theme`          | `WorkspaceTheme`                        | Colours and spacing. See [Theme](#theme)                                                                                                                                         |
+| `onLayoutChange` | `(layout: Layout) => void`              | Called with the new layout at the end of a divider drag, a divider key press or a reset                                                                                          |
+| `renderUnknown`  | `(moduleId: string) => ReactNode`       | Renders a tile whose module id is not in `modules`. Default: "Unknown module: <id>"                                                                                              |
+| `labels`         | `{ divider?, unknownModule?, window? }` | The text the workspace shows. English by default. `window` is `(position, total) => string` for the `aria-label` of a window dot ("Window 2 of 3"). Define it outside the render |
+| `className`      | `string`                                | Added to the root element                                                                                                                                                        |
 
 - Define `modules` outside the render (a module constant). A new object on each render renders every module again.
 - The `Workspace` has no global state. Two workspaces on one page do not share anything.
@@ -34,12 +34,21 @@ Each `theme` key sets a `--tessera-*` CSS variable on the root element. A number
 | `radius`             | `--tessera-radius`               | `8px`                                                      |
 | `tileBackground`     | `--tessera-tile-background`      | `Canvas`                                                   |
 | `tileBorder`         | `--tessera-tile-border`          | `1px solid` CanvasText at 15%                              |
-| `tileShadow`         | `--tessera-tile-shadow`          | `none`                                                     |
+| `tileShadow`         | `--tessera-tile-shadow`          | `none` (shadow of a tile with no `elevation`)              |
+| `elevation1`         | `--tessera-elevation-1`          | Soft shadow, 1px offset                                    |
+| `elevation2`         | `--tessera-elevation-2`          | Soft shadow, 2px and 4px offsets                           |
+| `elevation3`         | `--tessera-elevation-3`          | Soft shadow, 4px and 8px offsets                           |
+| `elevation4`         | `--tessera-elevation-4`          | Soft shadow, 8px and 16px offsets                          |
+| `transitionDuration` | `--tessera-transition-duration`  | `240ms`                                                    |
+| `transitionEasing`   | `--tessera-transition-easing`    | `cubic-bezier(0.22, 1, 0.36, 1)`                           |
 | `dividerColor`       | `--tessera-divider-color`        | `transparent`                                              |
 | `dividerActiveColor` | `--tessera-divider-active-color` | `Highlight` (hover, focus and drag of a resizable divider) |
 
 - The defaults use CSS system colours, so they follow the page `color-scheme` (dark or light).
 - The tile border is drawn on top of the module. It does not take space.
+- A tile can set its own `radius`, `borderWidth`, `borderColor` and `elevation`. See [Appearance](layout.md#appearance).
+- `elevation1` to `elevation4` are the shadows of the tile `elevation` levels. The workspace clips a shadow at its edge, so give a large shadow enough `padding`.
+- `transitionDuration` and `transitionEasing` set the time and the easing of the animations the workspace plays (the window dots and the tile changes). They are CSS values, so a number is not allowed.
 - Tessera styles only its own elements (`.tessera-*`), never the module content.
 
 ## Resizing
@@ -61,8 +70,36 @@ The `Workspace` keeps the resized sizes in its own state. A new `layout` object 
 - To restore saved sizes, give the saved layout as `layout` when the workspace starts.
 - If you give the `onLayoutChange` value back as `layout`, the double-click reset goes to the newest sizes.
 
+## Animation
+
+A new `layout` prop moves the tiles with a CSS transition. A tile with an `id` that enters grows from size 0 and fades in. A tile that leaves fades out and shrinks to size 0 (or keeps its size, see [Flex](layout.md#flex)). A tile that changes size moves to its new size. The browser does the work, so the modules do not render again.
+
+- `transitionDuration` and `transitionEasing` in the [theme](#theme) set the time and the easing.
+- A drag, a key press or a double-click on a divider moves the tiles at once, with no transition.
+- A theme change (for example `gap`) is at once.
+- With `prefers-reduced-motion: reduce` every change is at once.
+- A tile that leaves stays in the DOM until its transition ends. Its module is mounted until then.
+- When a removal froze sizes or added a spacer, `onLayoutChange` is called once, after the transition ends. A removal where only `"grow"` tiles stay gives no call. If you give the written layout back as `layout`, nothing moves and no module mounts again.
+- A tile with a user drag that starts in the middle of a transition starts from the sizes on the screen.
+
+## `useTile`
+
+`useTile()` returns `{ id, path }` of the tile that holds the calling module. `id` is the `id` of the tile in the layout (`undefined` if it has none). `path` is the child indexes from the root, joined with dots (the root is `""`).
+
+```tsx
+function Card() {
+  const { id } = useTile();
+  return <button onClick={() => remove(id)}>Close</button>;
+}
+```
+
+- Call it only in a module that a `Workspace` renders. Anywhere else it throws an error: `useTile works only inside a module that a <Workspace> renders`.
+- In a tile with windows, every window gets the same tile.
+
 ## Module state
 
 A module is a normal React component. Its state stays while the layout keeps the tile at the same place in the tree: a resize does not change it.
 
-When a new layout moves a tile to a different place, or removes it, React unmounts the module and its state goes. Keep state that must stay in a store outside the module.
+A tile with an `id` keeps its module and its state when a new layout changes the order of its siblings or removes one of them. A tile with no `id` is matched by its place in the split.
+
+When a new layout moves a tile to a different split, or removes it, React unmounts the module and its state goes. Keep state that must stay in a store outside the module.

@@ -16,7 +16,7 @@ const DEFAULT_GAP_PX = 8;
 const KEY_STEP_PX = 10;
 const DEFAULT_RESIZABLE_MIN_PX = 48;
 
-const EXAMPLE_TITLES = ["Sidebar", "Units", "Fixed grid", "Nested resizable", "Edge cases", "Single tile"];
+const EXAMPLE_TITLES = ["Sidebar", "Units", "Fixed grid", "Nested resizable", "Groups", "Edge cases", "Single tile"];
 
 // A module tile by a text only it shows. Tessera has no test ids, and the library classes are public.
 function tileWith(page: Page, text: string): Locator {
@@ -104,12 +104,14 @@ test.describe("Units", () => {
     const free = inner - 4 * gap - fixed["20%"] - fixed["12rem"] - fixed["200px"];
     const expected: Record<string, number> = { ...fixed, "Share 1": free / 3, "Share 2": (free * 2) / 3 };
 
-    const widths = await Promise.all(
-      Object.keys(expected).map(async (label) => (await boxOf(tileWith(page, label))).width),
+    // Tiles with the same key in the old example animate to the new sizes.
+    await Promise.all(
+      Object.entries(expected).map(([label, width]) =>
+        expect
+          .poll(async () => (await boxOf(tileWith(page, label))).width, { message: `${label} tile width` })
+          .toBeCloseTo(width, 1),
+      ),
     );
-    Object.entries(expected).forEach(([label, width], i) => {
-      expect(widths[i], `${label} tile width`).toBeCloseTo(width, 1);
-    });
   });
 });
 
@@ -190,12 +192,12 @@ test.describe("JSON editor", () => {
     (await boxOf(tileWith(page, "Main"))).height / (await boxOf(tileWith(page, "Info"))).height;
 
   test("a valid edit changes the tile sizes at once and keeps the text as typed", async ({ page }) => {
-    expect(await mainToInfoRatio(page)).toBeCloseTo(3, 2);
+    await expect.poll(() => mainToInfoRatio(page)).toBeCloseTo(3, 2);
 
     const edited = (await editor(page).inputValue()).replace(infoShare, '"size":   3');
     await editor(page).fill(edited);
 
-    expect(await mainToInfoRatio(page)).toBeCloseTo(1, 2);
+    await expect.poll(() => mainToInfoRatio(page)).toBeCloseTo(1, 2);
     await expect(editor(page)).toHaveValue(edited);
     await expect(editor(page)).toHaveAttribute("aria-invalid", "false");
   });
@@ -208,21 +210,22 @@ test.describe("JSON editor", () => {
     await expect(editor(page)).toHaveAttribute("aria-invalid", "true");
     await expect(editor(page)).toHaveAttribute("aria-describedby", "layout-json-errors");
     await expect(errors.getByRole("listitem")).toHaveCount(1);
-    expect(await mainToInfoRatio(page)).toBeCloseTo(3, 2);
+    await expect.poll(() => mainToInfoRatio(page)).toBeCloseTo(3, 2);
 
     await editor(page).fill(valid.replace(infoShare, '"size": -1'));
     await expect(errors).toContainText("root.children[1].children[1].size");
     await expect(editor(page)).toHaveAttribute("aria-invalid", "true");
-    expect(await mainToInfoRatio(page)).toBeCloseTo(3, 2);
+    await expect.poll(() => mainToInfoRatio(page)).toBeCloseTo(3, 2);
 
     await editor(page).fill(valid.replace(infoShare, '"size": 3'));
     await expect(errors).toHaveCount(0);
     await expect(editor(page)).toHaveAttribute("aria-invalid", "false");
-    expect(await mainToInfoRatio(page)).toBeCloseTo(1, 2);
+    await expect.poll(() => mainToInfoRatio(page)).toBeCloseTo(1, 2);
   });
 
   test("a drag after an edit writes the new sizes into the editor", async ({ page }) => {
     await editor(page).fill((await editor(page).inputValue()).replace(infoShare, '"size": 3'));
+    await expect.poll(() => mainToInfoRatio(page)).toBeCloseTo(1, 2);
     const before = await editor(page).inputValue();
 
     await dragBy(page, page.locator('[role="separator"][aria-orientation="horizontal"]'), 0, 60);
@@ -240,7 +243,7 @@ test.describe("JSON editor", () => {
 
     await openExample(page, "Sidebar");
 
-    expect(await mainToInfoRatio(page)).toBeCloseTo(3, 2);
+    await expect.poll(() => mainToInfoRatio(page)).toBeCloseTo(3, 2);
     const [main, info] = (await readJson(page)).children?.[1]?.children ?? [];
     expect([main?.size, info?.size]).toEqual([3, 1]);
   });

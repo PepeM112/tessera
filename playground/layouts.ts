@@ -8,6 +8,8 @@ export interface Example {
   layout: Layout;
 }
 
+const CARD_LOOK = { radius: 16, elevation: 2, borderWidth: 1, borderColor: "#4f7cff55" } as const;
+
 export const EXAMPLES: Example[] = [
   {
     id: "sidebar",
@@ -93,6 +95,60 @@ export const EXAMPLES: Example[] = [
             ],
           },
           { module: "readout", props: { label: "Bottom 30%" }, size: "30%" },
+        ],
+      },
+    }),
+  },
+  {
+    id: "groups",
+    title: "Groups",
+    layout: defineLayout(MODULES, {
+      root: {
+        id: "root",
+        split: "row",
+        children: [
+          {
+            id: "left",
+            module: "card",
+            props: { title: "Left", words: "tall calm quiet tile", accent: "#4f7cff" },
+            size: 1,
+            ...CARD_LOOK,
+          },
+          {
+            id: "right",
+            split: "column",
+            size: 2,
+            children: [
+              {
+                id: "group",
+                split: "row",
+                children: [
+                  {
+                    id: "a",
+                    module: "card",
+                    props: { title: "A", words: "red apple sweet fruit", accent: "#e5484d" },
+                    flex: "grow",
+                    ...CARD_LOOK,
+                  },
+                  {
+                    id: "b",
+                    module: "card",
+                    props: { title: "B", words: "blue boat slow river", accent: "#2fb37a" },
+                    flex: "grow",
+                    ...CARD_LOOK,
+                  },
+                ],
+              },
+              {
+                id: "wide",
+                windows: [
+                  { module: "card", props: { title: "Hello", words: "good morning to you", accent: "#e2a33b" } },
+                  { module: "card", props: { title: "World", words: "big round blue earth", accent: "#7a3cff" } },
+                ],
+                ...CARD_LOOK,
+              },
+            ],
+          },
         ],
       },
     }),

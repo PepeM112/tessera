@@ -1,9 +1,25 @@
-import { Fragment, memo, type ComponentType, type CSSProperties } from "react";
+import { Fragment, memo, useMemo, type CSSProperties } from "react";
 
 import { Divider } from "./divider";
-import { childPath, isSplitTile, type ModuleProps, type ModuleTile, type SplitTile, type Tile } from "./layout";
+import {
+  childPath,
+  hasWindows,
+  isSpacerTile,
+  isSplitTile,
+  type ModuleTile,
+  type SplitTile,
+  type Tile,
+  type TileAppearance,
+  type WindowsTile,
+} from "./layout";
+import { ModuleContent } from "./module-view";
 import { DEFAULT_RESIZABLE_MIN_SIZE, tileFlexStyle, type SplitDirection } from "./size";
+import { toCssValue } from "./theme";
+import { describeDivider, type LeavingMode } from "./tile-presence";
 import { useSplitResize } from "./use-split-resize";
+import { TileContext } from "./use-tile";
+import { useTilePresence } from "./use-tile-presence";
+import { WindowPager } from "./window-pager";
 import { useWorkspaceContext } from "./workspace-context";
 
 interface TileNodeProps {
@@ -12,40 +28,79 @@ interface TileNodeProps {
   /** The direction of the parent split. The root tile has none. */
   direction?: SplitDirection;
   isInResizableSplit: boolean;
+  /** Set while the tile leaves. `"pending"`: the animation is not planned yet. */
+  leaving?: "pending" | LeavingMode;
+  isEntering?: boolean;
+  isFrozen?: boolean;
+}
+
+type TileVariables = Record<`--tessera-tile-${string}`, string>;
+
+interface PresenceAttributes {
+  "data-leaving": string | undefined;
+  "data-entering": string | undefined;
+  "data-frozen": string | undefined;
 }
 
 interface TileViewProps<T extends Tile> {
   tile: T;
   path: string;
   style: CSSProperties;
+  attributes: PresenceAttributes;
 }
 
-interface ModuleViewProps {
-  component: ComponentType<never>;
-  props: ModuleProps | undefined;
-}
+const COLLAPSED_STYLE: CSSProperties = { flex: "0 0 0" };
 
 // Memoized: a resize changes only the tiles on the path to the resized split, so other tiles skip the render.
-export const TileNode = memo(function TileNode({ tile, path, direction, isInResizableSplit }: TileNodeProps) {
-  const minSize = tile.minSize ?? (isInResizableSplit ? DEFAULT_RESIZABLE_MIN_SIZE : undefined);
-  const style: CSSProperties = {
-    ...tileFlexStyle(direction ? tile.size : undefined, minSize, direction),
-    ...(tile.background ? { background: tile.background } : {}),
+export const TileNode = memo(function TileNode({
+  tile,
+  path,
+  direction,
+  isInResizableSplit,
+  leaving,
+  isEntering,
+  isFrozen,
+}: TileNodeProps) {
+  // A leaving tile has no minimum size, so it can shrink to 0.
+  const minSize = leaving
+    ? undefined
+    : ((isSpacerTile(tile) ? undefined : tile.minSize) ??
+      (isInResizableSplit ? DEFAULT_RESIZABLE_MIN_SIZE : undefined));
+  const flexStyle =
+    leaving === "collapse" ? COLLAPSED_STYLE : tileFlexStyle(direction ? tile.size : undefined, minSize, direction);
+  const attributes: PresenceAttributes = {
+    "data-leaving": leaving,
+    "data-entering": isEntering ? "" : undefined,
+    "data-frozen": isFrozen ? "" : undefined,
   };
 
+  if (isSpacerTile(tile)) {
+    return (
+      <div
+        className="tessera-tile tessera-spacer"
+        aria-hidden="true"
+        data-tile-id={tile.id}
+        style={flexStyle}
+        {...attributes}
+      />
+    );
+  }
+
+  const style: CSSProperties = { ...flexStyle, ...(tile.background ? { background: tile.background } : {}) };
   return isSplitTile(tile) ? (
-    <SplitTileView tile={tile} path={path} style={style} />
+    <SplitTileView tile={tile} path={path} style={style} attributes={attributes} />
   ) : (
-    <ModuleTileView tile={tile} path={path} style={style} />
+    <ModuleTileView tile={tile} path={path} style={style} attributes={attributes} />
   );
 });
 
-function SplitTileView({ tile, path, style }: TileViewProps<SplitTile>) {
+function SplitTileView({ tile, path, style, attributes }: TileViewProps<SplitTile>) {
   const { dividerLabel } = useWorkspaceContext();
   const { containerRef, draggingIndex, handlePointerDown, handleKeyDown, handleDoubleClick } = useSplitResize(
     tile,
     path,
   );
+  const { entries, handleTransitionEnd } = useTilePresence(tile, path, containerRef);
   const isResizable = tile.resizable === true;
 
   return (
@@ -55,45 +110,79 @@ function SplitTileView({ tile, path, style }: TileViewProps<SplitTile>) {
       data-direction={tile.split}
       data-tile-id={tile.id}
       style={style}
+      onTransitionEnd={handleTransitionEnd}
+      {...attributes}
     >
-      {tile.children.map((child, i) => (
-        <Fragment key={i}>
-          {i > 0 &&
-            (isResizable ? (
-              <Divider
-                index={i - 1}
-                direction={tile.split}
-                label={dividerLabel}
-                isDragging={draggingIndex === i - 1}
-                onPointerDown={handlePointerDown}
-                onKeyDown={handleKeyDown}
-                onDoubleClick={handleDoubleClick}
-              />
-            ) : (
-              <div className="tessera-divider" aria-hidden="true" />
-            ))}
-          <TileNode tile={child} path={childPath(path, i)} direction={tile.split} isInResizableSplit={isResizable} />
-        </Fragment>
-      ))}
+      {entries.map((entry, position) => {
+        const divider = position > 0 ? describeDivider(entries, position) : undefined;
+        return (
+          <Fragment key={entry.key}>
+            {divider &&
+              (isResizable && divider.resizableIndex !== null ? (
+                <Divider
+                  index={divider.resizableIndex}
+                  direction={tile.split}
+                  label={dividerLabel}
+                  isDragging={draggingIndex === divider.resizableIndex}
+                  isEntering={divider.isEntering}
+                  onPointerDown={handlePointerDown}
+                  onKeyDown={handleKeyDown}
+                  onDoubleClick={handleDoubleClick}
+                />
+              ) : (
+                <div
+                  className="tessera-divider"
+                  aria-hidden="true"
+                  data-leaving={divider.isCollapsing ? "collapse" : undefined}
+                  data-entering={divider.isEntering ? "" : undefined}
+                />
+              ))}
+            <TileNode
+              tile={entry.tile}
+              path={childPath(path, entry.index)}
+              direction={tile.split}
+              isInResizableSplit={isResizable}
+              leaving={entry.state === "leaving" ? (entry.mode ?? "pending") : undefined}
+              isEntering={entry.state === "entering"}
+              isFrozen={entry.isFrozen}
+            />
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
 
-function ModuleTileView({ tile, style }: TileViewProps<ModuleTile>) {
-  const { modules, renderUnknown } = useWorkspaceContext();
-  // hasOwn: a module id like "toString" must not find a method of Object.prototype.
-  const component = Object.hasOwn(modules, tile.module) ? modules[tile.module] : undefined;
+function ModuleTileView({ tile, path, style, attributes }: TileViewProps<ModuleTile | WindowsTile>) {
+  const info = useMemo(() => ({ id: tile.id, path }), [tile.id, path]);
+  const hasCustomBorder = tile.borderWidth !== undefined || tile.borderColor !== undefined;
 
   return (
-    <div className="tessera-tile tessera-module" data-module={tile.module} data-tile-id={tile.id} style={style}>
-      {component ? <ModuleView component={component} props={tile.props} /> : renderUnknown(tile.module)}
+    <div
+      {...attributes}
+      className="tessera-tile tessera-module"
+      data-module={hasWindows(tile) ? undefined : tile.module}
+      data-tile-id={tile.id}
+      data-elevation={tile.elevation}
+      data-border={hasCustomBorder ? "custom" : undefined}
+      style={{ ...style, ...appearanceStyle(tile) }}
+    >
+      <TileContext value={info}>
+        {hasWindows(tile) ? (
+          <WindowPager windows={tile.windows} />
+        ) : (
+          <ModuleContent moduleId={tile.module} props={tile.props} />
+        )}
+      </TileContext>
     </div>
   );
 }
 
-// Memoized on the component and the props object, so a resize does not render the module again.
-const ModuleView = memo(function ModuleView({ component, props }: ModuleViewProps) {
-  // SAFETY: a layout's props are the module's props by contract. defineLayout checks them in TS layouts.
-  const Module = component as ComponentType<ModuleProps>;
-  return <Module {...props} />;
-});
+// Local variables: the CSS falls back to the theme value when a tile does not set one.
+function appearanceStyle({ radius, borderWidth, borderColor }: TileAppearance): TileVariables {
+  return {
+    ...(radius === undefined ? {} : { "--tessera-tile-radius": toCssValue(radius) }),
+    ...(borderWidth === undefined ? {} : { "--tessera-tile-border-width": toCssValue(borderWidth) }),
+    ...(borderColor === undefined ? {} : { "--tessera-tile-border-color": borderColor }),
+  };
+}

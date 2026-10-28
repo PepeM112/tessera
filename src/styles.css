@@ -37,8 +37,120 @@
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   /* `clip`, not `hidden`: the tile must not scroll (focus or scrollIntoView), so the ::after border stays in place. */
   overflow: clip;
+  border-radius: var(--tessera-tile-radius, var(--tessera-radius, 8px));
   background: var(--tessera-tile-background, Canvas);
   box-shadow: var(--tessera-tile-shadow, none);
+}
+
+/* Elevation scale. A tile with `elevation` 0 has no shadow. A tile with no `elevation` uses --tessera-tile-shadow. */
+.tessera-module[data-elevation="0"] {
+  box-shadow: none;
+}
+
+.tessera-module[data-elevation="1"] {
+  box-shadow: var(--tessera-elevation-1, 0 1px 2px rgb(0 0 0 / 0.12), 0 1px 1px rgb(0 0 0 / 0.08));
+}
+
+.tessera-module[data-elevation="2"] {
+  box-shadow: var(--tessera-elevation-2, 0 2px 4px rgb(0 0 0 / 0.12), 0 4px 8px rgb(0 0 0 / 0.08));
+}
+
+.tessera-module[data-elevation="3"] {
+  box-shadow: var(--tessera-elevation-3, 0 4px 8px rgb(0 0 0 / 0.12), 0 8px 16px rgb(0 0 0 / 0.1));
+}
+
+.tessera-module[data-elevation="4"] {
+  box-shadow: var(--tessera-elevation-4, 0 8px 16px rgb(0 0 0 / 0.14), 0 16px 32px rgb(0 0 0 / 0.12));
+}
+
+/* A tile that sets a border width or colour draws its own border. The value it does not set uses the default. */
+.tessera-module[data-border="custom"]::after {
+  border: var(--tessera-tile-border-width, 1px) solid
+    var(--tessera-tile-border-color, color-mix(in srgb, CanvasText 15%, transparent));
+}
+
+/* An invisible tile: it only holds space in a split. */
+.tessera-spacer {
+  pointer-events: none;
+}
+
+/* The windows of a tile: a scroller with scroll-snap. Each window fills the tile and is one grid cell like .tessera-module. */
+.tessera-windows {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.tessera-windows::-webkit-scrollbar {
+  display: none;
+}
+
+.tessera-window {
+  display: grid;
+  flex: 0 0 100%;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.tessera-window-dots {
+  position: absolute;
+  inset: auto 0 4px;
+  display: flex;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--tessera-transition-duration, 240ms)
+    var(--tessera-transition-easing, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.tessera-module:hover > .tessera-window-dots,
+.tessera-module:focus-within > .tessera-window-dots {
+  opacity: 1;
+}
+
+/* The button is 20px for easy clicks. The visible dot is 8px. */
+.tessera-window-dot {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.tessera-window-dot::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: CanvasText;
+  box-shadow: 0 0 0 1px Canvas;
+  opacity: 0.35;
+}
+
+.tessera-window-dot[aria-current="true"]::before {
+  opacity: 1;
+}
+
+.tessera-window-dot:focus-visible {
+  outline: 2px solid var(--tessera-divider-active-color, Highlight);
+  outline-offset: -2px;
+  border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tessera-window-dots {
+    transition: none;
+  }
 }
 
 /* The border is an overlay, so it is not part of the flex base size and shares keep their exact ratio. */
@@ -98,6 +210,58 @@
 .tessera-divider[data-resizable]:focus-visible::after,
 .tessera-divider[data-dragging]::after {
   opacity: 1;
+}
+
+/*
+ * Animation. A new layout prop, a tile that enters and a tile that leaves all move on the same transition,
+ * so the browser does the work and the modules do not render again.
+ */
+/* A divider moves only when it enters or leaves: a gap change from the theme is instant. */
+.tessera-split > .tessera-tile,
+.tessera-split > .tessera-divider[data-entering],
+.tessera-split > .tessera-divider[data-leaving] {
+  transition-property: flex-grow, flex-basis, opacity;
+  transition-duration: var(--tessera-transition-duration, 240ms);
+  transition-timing-function: var(--tessera-transition-easing, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+/* No size transition for a resize by the user, and for a tile that takes a fixed size when another tile leaves. */
+.tessera-workspace[data-instant] .tessera-split > .tessera-tile,
+.tessera-workspace[data-instant] .tessera-split > .tessera-divider[data-entering],
+.tessera-workspace[data-instant] .tessera-split > .tessera-divider[data-leaving],
+.tessera-split > .tessera-tile[data-frozen],
+.tessera-split > .tessera-tile[data-leaving="hold"] {
+  transition-property: opacity;
+}
+
+/* A new tile starts at size 0 and grows to its size. !important: the size of a tile is an inline style. */
+@starting-style {
+  .tessera-split > .tessera-tile[data-entering],
+  .tessera-split > .tessera-divider[data-entering] {
+    flex-grow: 0 !important;
+    flex-basis: 0 !important;
+    opacity: 0;
+  }
+}
+
+/* A tile that leaves shrinks to 0 (its flex is set inline) or keeps its size, and fades out. */
+.tessera-tile[data-leaving="collapse"],
+.tessera-tile[data-leaving="hold"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tessera-divider[data-leaving="collapse"] {
+  flex-basis: 0;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tessera-split > .tessera-tile,
+  .tessera-split > .tessera-divider[data-entering],
+  .tessera-split > .tessera-divider[data-leaving] {
+    transition: none;
+  }
 }
 
 .tessera-unknown {

@@ -4,7 +4,7 @@
 
 Tessera is a **React tiling layout library**. A **Workspace** renders a **Layout** config as **Tiles**. A tile holds a **Module** (a React component from the `modules` map prop) or is a **Split** (row or column) into more tiles. **Dividers** between tiles are fixed by default, or resizable per split.
 
-- Layouts come from config. There is no runtime rearranging (no drag-and-drop of tiles, no tabs, no docking).
+- Layouts come from config. A new `layout` prop from outside animates (tiles removed, added or resized). The library has no runtime rearranging of its own (no drag-and-drop of tiles, no tabs, no docking).
 - The library has no app logic. An app (for example the future AftradUI port) installs it and gives its own modules.
 - Top concerns, in order: (1) performance and smooth resizing, (2) a small, typed, predictable API, (3) clean code.
 
@@ -20,6 +20,8 @@ Use these words in code, docs and UI text. Do not use synonyms (panel, pane, vie
 | **Module**    | A React component in the `modules` map. A module tile names it by id and gives it `props` |
 | **Split**     | A tile divided into child tiles in a `row` or a `column`                                  |
 | **Divider**   | The gap between two tiles in a split. Fixed, or draggable with `resizable: true`          |
+| **Window**    | One of several modules in a module tile. The windows scroll side by side, with dots       |
+| **Spacer**    | An empty, invisible tile that holds the place of a removed tile (`{ spacer: true }`)      |
 
 ## Architecture & File Structure
 
@@ -29,7 +31,12 @@ src/                   -> The library. Everything in here is published (except t
   workspace.tsx        -> Workspace component: layout state, resize/reset, context
   tile-node.tsx        -> Renders one tile (split or module), recursive
   divider.tsx          -> Divider element (role separator)
+  module-view.tsx      -> Renders one module (memoized), used by tiles and windows
+  window-pager.tsx     -> Windows of one tile: scroll-snap scroller and dots
   use-split-resize.ts  -> Pointer and keyboard resizing of one split
+  use-tile.ts          -> useTile() hook and the tile context
+  tile-presence.ts     -> Pure: leaving/entering tiles and the removal rules (spacer, frozen sizes)
+  use-tile-presence.ts -> Hook: follows the children of a split, measures, finishes the exit animation
   use-pointer-drag.ts  -> Pointer capture helper
   workspace-context.ts -> Context shared by the tiles of one workspace
   layout.ts            -> Layout types, defineLayout, parseLayout, tree helpers

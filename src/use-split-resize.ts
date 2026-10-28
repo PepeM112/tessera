@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from "react";
 
+import { isSpacerTile, type SplitTile } from "./layout";
 import {
   DEFAULT_RESIZABLE_MIN_SIZE,
   lengthToPx,
@@ -18,8 +19,6 @@ import {
 } from "./size";
 import { usePointerDrag } from "./use-pointer-drag";
 import { useWorkspaceContext } from "./workspace-context";
-
-import type { SplitTile } from "./layout";
 
 const KEY_STEP_PX = 10;
 
@@ -124,7 +123,9 @@ function measureSplit(container: HTMLElement, split: SplitTile): Measurement {
   return {
     sizes: split.children.map((child) => child.size),
     pixels: tileElements(container).map((element) => mainSize(element, split.split)),
-    minPixels: split.children.map((child) => lengthToPx(child.minSize ?? DEFAULT_RESIZABLE_MIN_SIZE, context)),
+    minPixels: split.children.map((child) =>
+      lengthToPx((isSpacerTile(child) ? undefined : child.minSize) ?? DEFAULT_RESIZABLE_MIN_SIZE, context),
+    ),
     context,
   };
 }
@@ -138,11 +139,12 @@ function updateDividerValues(container: HTMLElement, direction: SplitDirection):
   });
 }
 
-function tileElements(container: HTMLElement): Element[] {
-  return Array.from(container.querySelectorAll(":scope > .tessera-tile"));
+/** The tiles of the layout. A tile that leaves is still in the DOM, but it is not a child to resize. */
+export function tileElements(container: HTMLElement): Element[] {
+  return Array.from(container.querySelectorAll(":scope > .tessera-tile:not([data-leaving])"));
 }
 
-function mainSize(element: Element, direction: SplitDirection): number {
+export function mainSize(element: Element, direction: SplitDirection): number {
   const rect = element.getBoundingClientRect();
   return direction === "row" ? rect.width : rect.height;
 }
