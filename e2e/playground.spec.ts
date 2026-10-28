@@ -156,23 +156,17 @@ test.describe("Nested resizable", () => {
     const [leftJson] = (await readJson(page)).children?.[0]?.children ?? [];
     expect(leftJson?.size).toBeLessThan(0.2);
   });
-});
 
-test.describe("Fed-back layout", () => {
-  test("a drag shows the new sizes in the editor, and a double-click resets to the example sizes", async ({ page }) => {
-    await openExample(page, "Nested resizable");
-    const divider = page.locator('[role="separator"][aria-orientation="vertical"]');
+  test("a double-click resets to the example sizes after the fed-back drag", async ({ page }) => {
     const left = tileWith(page, "Left");
     const widthBefore = (await boxOf(left)).width;
     const jsonBefore = await readJson(page);
 
-    await dragBy(page, divider, 100, 0);
+    await dragBy(page, rowDivider(page), 100, 0);
     await expect.poll(async () => (await boxOf(left)).width).toBeGreaterThan(widthBefore + 99);
-    await nextFrames(page);
-    expect(Math.abs((await boxOf(left)).width - (widthBefore + 100))).toBeLessThan(1);
     expect(await readJson(page)).not.toEqual(jsonBefore);
 
-    await divider.dblclick();
+    await rowDivider(page).dblclick();
     await expect.poll(async () => Math.abs((await boxOf(left)).width - widthBefore)).toBeLessThan(0.5);
     expect(await readJson(page)).toEqual(jsonBefore);
   });

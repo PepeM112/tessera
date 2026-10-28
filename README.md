@@ -57,19 +57,21 @@ export function App() {
 Use this to install Tessera from a folder on your machine.
 
 ```sh
-cd ../tessera && make build        # the package exports point to dist/
+cd ../tessera && npm install && make build   # the package exports point to dist/
 cd ../my-app && npm install file:../tessera
 ```
 
-If the app uses Vite, set `resolve.dedupe` so the app and Tessera share one React copy:
+If the app uses Vite, add `resolve.dedupe` to your existing config, so the app and Tessera share one React copy:
 
 ```ts
 export default defineConfig({
-  resolve: { dedupe: ["react", "react-dom"] },
+  plugins: [react()],
+  resolve: { dedupe: ["react", "react-dom"] }, // add this
 });
 ```
 
-Run `make build` again after each change in Tessera.
+- `file:` makes a symlink (npm default `install-links=false`), so `make build` again after a change is enough. No new install.
+- Use the same `@types/react` version in the app and in Tessera. TypeScript follows the symlink to the Tessera copy.
 
 ## Development
 

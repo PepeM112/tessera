@@ -691,7 +691,7 @@ describe("Workspace animation", () => {
     const resizableRow = (...children: Tile[]): Layout => ({ root: { split: "row", resizable: true, children } });
     const { rerender } = renderInFrame(
       <Workspace
-        layout={resizableRow(counter("A", "static"), counter("B", "static"))}
+        layout={resizableRow({ ...counter("A", "static"), size: 1 }, { ...counter("B", "static"), size: 3 })}
         modules={MODULES}
         theme={FAST}
         onLayoutChange={handleLayoutChange}
@@ -709,7 +709,7 @@ describe("Workspace animation", () => {
     const written = handleLayoutChange.mock.lastCall?.[0];
     if (!written) throw new Error("No layout sent");
     expect(written).toEqual(
-      resizableRow({ ...counter("A", "static"), size: "388px" }, { id: "B", spacer: true, size: "388px" }),
+      resizableRow({ ...counter("A", "static"), size: "194px" }, { id: "B", spacer: true, size: "582px" }),
     );
 
     rerender(<Workspace layout={written} modules={MODULES} theme={FAST} onLayoutChange={handleLayoutChange} />);
@@ -718,10 +718,10 @@ describe("Workspace animation", () => {
 
     const separator = screen.getByRole("separator");
     fireEvent.keyDown(separator, { key: "ArrowRight" });
-    expect(widthOf("A")).toBeGreaterThan(388);
+    expect(widthOf("A")).toBeGreaterThan(194);
     fireEvent.doubleClick(separator);
-    expect(widthOf("A")).toBeCloseTo(388, 0);
-    expect(widthOf("B")).toBeCloseTo(388, 0);
+    expect(widthOf("A")).toBeCloseTo(194, 0);
+    expect(widthOf("B")).toBeCloseTo(582, 0);
     expect(handleLayoutChange.mock.lastCall?.[0]).toEqual(written);
   });
 

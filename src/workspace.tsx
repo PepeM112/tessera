@@ -31,8 +31,8 @@ export interface WorkspaceProps {
   modules: ModuleMap;
   theme?: WorkspaceTheme;
   /**
-   * Called with the new layout at the end of a divider drag, a divider key press or a reset. If the app feeds this
-   * same object back as `layout`, the Workspace ignores it.
+   * Called with the new layout at the end of a divider drag, a divider key press or a reset, and after a removal
+   * that froze sizes or added a spacer. If the app feeds this same object back as `layout`, the Workspace ignores it.
    */
   onLayoutChange?: (layout: Layout) => void;
   /** Renders a tile whose module id is not in `modules`. */
