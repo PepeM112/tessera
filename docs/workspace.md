@@ -57,7 +57,7 @@ A split with `resizable: true` has draggable dividers. A split without it has fi
 
 - **Pointer**: drag a divider. Only the two tiles next to it change.
 - **Keyboard**: a divider is a focusable `separator`. Arrow keys move it 10px. `Home` and `End` move it to the limit.
-- **Double-click**: resets the split to the sizes in the `layout` prop.
+- **Double-click**: resets the split to the sizes of the last layout that you set as `layout`, plus the changes that a removal made (see [Animation](#animation)). A fed-back `onLayoutChange` value does not count as a layout that you set.
 - A share stays a share and a length keeps its unit (a `%` stays `%`, other units become `px`). So the result of `onLayoutChange` is a valid layout that renders the same.
 - `minSize` limits the drag. With no `minSize`, a tile in a resizable split stops at `48px`.
 - During a drag, the modules do not render again. `onLayoutChange` is called once, at the end.
@@ -66,9 +66,10 @@ A split with `resizable: true` has draggable dividers. A split without it has fi
 
 The `Workspace` keeps the resized sizes in its own state. A new `layout` object (a different identity) replaces that state.
 
-- To keep the user's sizes, give the `Workspace` the same `layout` object. Save the `onLayoutChange` value separately.
+- To keep the user's sizes, give the `Workspace` the same `layout` object, or give the `onLayoutChange` value back as `layout`.
 - To restore saved sizes, give the saved layout as `layout` when the workspace starts.
-- If you give the `onLayoutChange` value back as `layout`, the double-click reset goes to the newest sizes.
+- If you give the `onLayoutChange` value back as `layout`, the `Workspace` ignores it: the sizes stay, nothing animates, and the double-click reset still goes to the sizes of the last layout that you set.
+- The match is by object identity (`===`) with the last value that `onLayoutChange` sent. It holds until you give another layout. A copy, even an equal one, is a new layout: it resets the sizes and becomes the reset target.
 
 ## Animation
 
@@ -79,7 +80,7 @@ A new `layout` prop moves the tiles with a CSS transition. A tile with an `id` t
 - A theme change (for example `gap`) is at once.
 - With `prefers-reduced-motion: reduce` every change is at once.
 - A tile that leaves stays in the DOM until its transition ends. Its module is mounted until then.
-- When a removal froze sizes or added a spacer, `onLayoutChange` is called once, after the transition ends. A removal where only `"grow"` tiles stay gives no call. If you give the written layout back as `layout`, nothing moves and no module mounts again.
+- When a removal froze sizes or added a spacer, `onLayoutChange` is called once, after the transition ends. A removal where only `"grow"` tiles stay gives no call. If you give the written layout back as `layout`, the `Workspace` ignores it: nothing moves and no module mounts again. The written sizes and spacers also become part of the double-click reset target.
 - A tile with a user drag that starts in the middle of a transition starts from the sizes on the screen.
 
 ## `useTile`

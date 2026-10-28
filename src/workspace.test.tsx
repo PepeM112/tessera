@@ -212,6 +212,67 @@ describe("Workspace", () => {
     expect(growOf("Left")).toBe("1");
   });
 
+  it("ignores a layout that the app feeds back from onLayoutChange, and still resets to the original sizes", () => {
+    const handleLayoutChange = vi.fn<(layout: Layout) => void>();
+    const { rerender } = renderInFrame(
+      <Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />,
+    );
+    const separator = screen.getByRole("separator");
+    fireEvent.pointerDown(separator, { button: 0, pointerId: 1, clientX: 100 });
+    fireEvent.pointerMove(document, { pointerId: 1, clientX: 150 });
+    fireEvent.pointerUp(document, { pointerId: 1, clientX: 150 });
+    const sent = handleLayoutChange.mock.lastCall?.[0];
+    if (!sent) throw new Error("No layout sent");
+    expect(growOf("Left")).toBe("1.129");
+    expect(handleLayoutChange).toHaveBeenCalledTimes(1);
+    expect(parseLayout(JSON.parse(JSON.stringify(sent))).ok).toBe(true);
+
+    rerender(<Workspace layout={sent} modules={MODULES} onLayoutChange={handleLayoutChange} />);
+    expect(growOf("Left")).toBe("1.129");
+    expect(handleLayoutChange).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".tessera-workspace")?.hasAttribute("data-instant")).toBe(true);
+
+    fireEvent.doubleClick(separator);
+    expect(growOf("Left")).toBe("1");
+    expect(handleLayoutChange).toHaveBeenLastCalledWith(RESIZABLE);
+  });
+
+  it("shows a sent layout again when the app brings it back after another layout", () => {
+    const handleLayoutChange = vi.fn<(layout: Layout) => void>();
+    const { rerender } = renderInFrame(
+      <Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />,
+    );
+    fireEvent.keyDown(screen.getByRole("separator"), { key: "End" });
+    const sent = handleLayoutChange.mock.lastCall?.[0];
+    if (!sent) throw new Error("No layout sent");
+    rerender(<Workspace layout={sent} modules={MODULES} onLayoutChange={handleLayoutChange} />);
+    rerender(<Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />);
+    expect(growOf("Left")).toBe("1");
+
+    rerender(<Workspace layout={sent} modules={MODULES} onLayoutChange={handleLayoutChange} />);
+    expect(growOf("Left")).not.toBe("1");
+  });
+
+  it("resets a deep-equal copy of the last sent layout, like any new layout", () => {
+    const handleLayoutChange = vi.fn<(layout: Layout) => void>();
+    const { rerender } = renderInFrame(
+      <Workspace layout={RESIZABLE} modules={MODULES} onLayoutChange={handleLayoutChange} />,
+    );
+    const separator = screen.getByRole("separator");
+    fireEvent.keyDown(separator, { key: "ArrowRight" });
+    const sent = handleLayoutChange.mock.lastCall?.[0];
+    if (!sent) throw new Error("No layout sent");
+    expect(document.querySelector(".tessera-workspace")?.hasAttribute("data-instant")).toBe(true);
+
+    rerender(<Workspace layout={structuredClone(sent)} modules={MODULES} onLayoutChange={handleLayoutChange} />);
+    expect(document.querySelector(".tessera-workspace")?.hasAttribute("data-instant")).toBe(false);
+
+    fireEvent.keyDown(separator, { key: "End" });
+    expect(growOf("Left")).toBe("1.876");
+    fireEvent.doubleClick(separator);
+    expect(growOf("Left")).toBe("1.026");
+  });
+
   it("sizes tiles like CSS flexbox with gap, in real pixels", () => {
     const layout: Layout = {
       root: {
@@ -623,6 +684,45 @@ describe("Workspace animation", () => {
     );
     expect(widthOf("A")).toBeCloseTo(Math.round(aWidth), 0);
     expect(widthOf("C")).toBeCloseTo(784 - 8 - Math.round(aWidth), 0);
+  });
+
+  it("resets a divider to the sizes of the patched children after a removal was fed back", async () => {
+    const handleLayoutChange = vi.fn<(layout: Layout) => void>();
+    const resizableRow = (...children: Tile[]): Layout => ({ root: { split: "row", resizable: true, children } });
+    const { rerender } = renderInFrame(
+      <Workspace
+        layout={resizableRow({ ...counter("A", "static"), size: 1 }, { ...counter("B", "static"), size: 3 })}
+        modules={MODULES}
+        theme={FAST}
+        onLayoutChange={handleLayoutChange}
+      />,
+    );
+    rerender(
+      <Workspace
+        layout={resizableRow(counter("A", "static"))}
+        modules={MODULES}
+        theme={FAST}
+        onLayoutChange={handleLayoutChange}
+      />,
+    );
+    await waitFor(() => expect(handleLayoutChange).toHaveBeenCalledTimes(1));
+    const written = handleLayoutChange.mock.lastCall?.[0];
+    if (!written) throw new Error("No layout sent");
+    expect(written).toEqual(
+      resizableRow({ ...counter("A", "static"), size: "194px" }, { id: "B", spacer: true, size: "582px" }),
+    );
+
+    rerender(<Workspace layout={written} modules={MODULES} theme={FAST} onLayoutChange={handleLayoutChange} />);
+    expect(isGone("B")).toBe(false);
+    expect(byId("B").classList.contains("tessera-spacer")).toBe(true);
+
+    const separator = screen.getByRole("separator");
+    fireEvent.keyDown(separator, { key: "ArrowRight" });
+    expect(widthOf("A")).toBeGreaterThan(194);
+    fireEvent.doubleClick(separator);
+    expect(widthOf("A")).toBeCloseTo(194, 0);
+    expect(widthOf("B")).toBeCloseTo(582, 0);
+    expect(handleLayoutChange.mock.lastCall?.[0]).toEqual(written);
   });
 
   it("sends one layout when two splits finish together", async () => {

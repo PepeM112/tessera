@@ -30,7 +30,10 @@ export interface WorkspaceProps {
   /** Module id → React component. Define it outside the render, so its identity stays the same. */
   modules: ModuleMap;
   theme?: WorkspaceTheme;
-  /** Called with the new layout at the end of a divider drag, a divider key press or a reset. */
+  /**
+   * Called with the new layout at the end of a divider drag, a divider key press or a reset, and after a removal
+   * that froze sizes or added a spacer. If the app feeds this same object back as `layout`, the Workspace ignores it.
+   */
   onLayoutChange?: (layout: Layout) => void;
   /** Renders a tile whose module id is not in `modules`. */
   renderUnknown?: (moduleId: string) => ReactNode;
@@ -54,23 +57,32 @@ export function Workspace({
   labels,
   className,
 }: WorkspaceProps) {
-  const [source, setSource] = useState(layout);
+  const [seen, setSeen] = useState(layout);
+  // The layout that a divider reset goes back to: the last layout prop, plus the patches of removed tiles.
+  const [base, setBase] = useState(layout);
   const [current, setCurrent] = useState(layout);
+  const [lastSent, setLastSent] = useState<Layout | undefined>();
   // True after a resize by the user: the sizes follow the pointer, so they must not use the transition.
   const [isInstant, setIsInstant] = useState(false);
-  const latest = useRef({ current, source, onLayoutChange });
+  const latest = useRef({ current, base, onLayoutChange });
   const pendingPatches = useRef(new Map<string, SplitPatch>());
   const flushTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // A new layout prop resets the sizes (state reset during render, the React pattern for derived state).
-  if (source !== layout) {
-    setSource(layout);
-    setCurrent(layout);
-    setIsInstant(false);
+  // The layout that the app got from onLayoutChange and feeds back is already on screen: it is not a reset.
+  if (seen !== layout) {
+    setSeen(layout);
+    if (layout !== lastSent) {
+      // An undo can bring back an older sent layout later: after a new layout, it is not on screen any more.
+      setLastSent(undefined);
+      setBase(layout);
+      setCurrent(layout);
+      setIsInstant(false);
+    }
   }
 
   useLayoutEffect(() => {
-    latest.current = { current, source, onLayoutChange };
+    latest.current = { current, base, onLayoutChange };
   });
 
   const resize = useCallback((path: string, sizes: readonly (TileSize | undefined)[], isFinal: boolean) => {
@@ -79,7 +91,9 @@ export function Workspace({
     latest.current.current = next;
     setCurrent(next);
     setIsInstant(true);
-    if (isFinal) latest.current.onLayoutChange?.(next);
+    if (!isFinal) return;
+    setLastSent(next);
+    latest.current.onLayoutChange?.(next);
   }, []);
 
   const flushPatches = useCallback(() => {
@@ -88,10 +102,17 @@ export function Workspace({
     pendingPatches.current.clear();
     const before = latest.current.current;
     // Deepest first: a patch can add a spacer, which moves the indexes of the tiles after it in that split only.
-    const next = patches.reduce((layout, [path, patch]) => withSplitPatch(layout, path, patch), before);
+    const applyPatches = (from: Layout): Layout =>
+      patches.reduce((layout, [path, patch]) => withSplitPatch(layout, path, patch), from);
+    const next = applyPatches(before);
     if (next === before) return;
+    // A drag does not change the structure of a split, so the same patches fit the reset base.
+    const nextBase = applyPatches(latest.current.base);
     latest.current.current = next;
+    latest.current.base = nextBase;
     setCurrent(next);
+    setBase(nextBase);
+    setLastSent(next);
     latest.current.onLayoutChange?.(next);
   }, []);
 
@@ -114,7 +135,7 @@ export function Workspace({
 
   const reset = useCallback(
     (path: string) => {
-      const split = getTileAt(latest.current.source.root, path);
+      const split = getTileAt(latest.current.base.root, path);
       if (split && isSplitTile(split))
         resize(
           path,

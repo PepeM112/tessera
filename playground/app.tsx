@@ -72,13 +72,7 @@ export function App() {
     setEdited({ text: next, layout });
   };
 
-  // A removal needs the layout fed back (a spacer or frozen sizes). A drag does not: feeding it back would
-  // make the dragged sizes the target of the divider reset, and would turn the size transition on again.
   const handleLayoutChange = (next: Layout): void => {
-    if (cards.length === 0) {
-      setEdited({ text: formatLayout(next), layout });
-      return;
-    }
     setState((current) => ({ ...current, layout: next }));
   };
 

@@ -156,6 +156,20 @@ test.describe("Nested resizable", () => {
     const [leftJson] = (await readJson(page)).children?.[0]?.children ?? [];
     expect(leftJson?.size).toBeLessThan(0.2);
   });
+
+  test("a double-click resets to the example sizes after the fed-back drag", async ({ page }) => {
+    const left = tileWith(page, "Left");
+    const widthBefore = (await boxOf(left)).width;
+    const jsonBefore = await readJson(page);
+
+    await dragBy(page, rowDivider(page), 100, 0);
+    await expect.poll(async () => (await boxOf(left)).width).toBeGreaterThan(widthBefore + 99);
+    expect(await readJson(page)).not.toEqual(jsonBefore);
+
+    await rowDivider(page).dblclick();
+    await expect.poll(async () => Math.abs((await boxOf(left)).width - widthBefore)).toBeLessThan(0.5);
+    expect(await readJson(page)).toEqual(jsonBefore);
+  });
 });
 
 test.describe("Theme", () => {
