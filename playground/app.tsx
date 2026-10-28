@@ -1,9 +1,12 @@
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useCallback, useMemo, useState, type ChangeEvent } from "react";
 
-import { parseLayout, Workspace, type Layout, type WorkspaceTheme } from "tessera";
+import { parseLayout, Workspace, type Layout, type TileFlex, type WorkspaceTheme } from "tessera";
 
+import { CardControls } from "./card-controls";
 import { EXAMPLES, type Example } from "./layouts";
 import { MODULES } from "./modules";
+import { TileActionsContext } from "./tile-actions";
+import { listCards, removeTile, restoreTile, withFlex, type RemovedTile } from "./tile-tree";
 
 type ColorScheme = "dark" | "light";
 
@@ -29,31 +32,81 @@ const JSON_ERRORS_ID = "layout-json-errors";
 
 type JsonLayoutResult = { layout: Layout } | { errors: string[] };
 
+interface LayoutState {
+  layout: Layout | undefined;
+  removed: RemovedTile[];
+}
+
+// Text that the user typed in the editor. It shows only while it belongs to the current layout.
+interface EditedText {
+  text: string;
+  layout: Layout | undefined;
+}
+
 export function App() {
   const [example, setExample] = useState<Example | undefined>(FIRST_EXAMPLE);
-  const [layout, setLayout] = useState<Layout | undefined>(FIRST_EXAMPLE?.layout);
-  const [text, setText] = useState<string>(() => formatLayout(FIRST_EXAMPLE?.layout));
+  const [{ layout, removed }, setState] = useState<LayoutState>({ layout: FIRST_EXAMPLE?.layout, removed: [] });
+  const [edited, setEdited] = useState<EditedText | undefined>();
+  const text = edited && edited.layout === layout ? edited.text : formatLayout(layout);
   const errors = useMemo(() => errorsOf(text), [text]);
+  const cards = useMemo(() => (example ? listCards(example.layout.root) : []), [example]);
   const [scheme, setScheme] = useState<ColorScheme>("dark");
   const [theme, setTheme] = useState<ThemeState>(INITIAL_THEME);
 
   const handleSelect = (next: Example): void => {
     setExample(next);
     // A new object, so the Workspace resets the sizes: it resets only when the layout reference changes.
-    setLayout({ ...next.layout });
-    setText(formatLayout(next.layout));
+    setState({ layout: { ...next.layout }, removed: [] });
+    setEdited(undefined);
   };
 
   const handleJsonChange = (event: ChangeEvent<HTMLTextAreaElement>): void => {
     const next = event.target.value;
     const result = parseJsonLayout(next);
-    setText(next);
-    if ("layout" in result) setLayout(result.layout);
+    // Bad text keeps the last valid layout on screen.
+    if ("layout" in result) {
+      setEdited({ text: next, layout: result.layout });
+      setState((current) => ({ ...current, layout: result.layout }));
+      return;
+    }
+    setEdited({ text: next, layout });
   };
 
+  // A removal needs the layout fed back (a spacer or frozen sizes). A drag does not: feeding it back would
+  // make the dragged sizes the target of the divider reset, and would turn the size transition on again.
   const handleLayoutChange = (next: Layout): void => {
-    setText(formatLayout(next));
+    if (cards.length === 0) {
+      setEdited({ text: formatLayout(next), layout });
+      return;
+    }
+    setState((current) => ({ ...current, layout: next }));
   };
+
+  // One function for the × button and the checkbox.
+  const handleRemoveTile = useCallback((id: string): void => {
+    setState((current) => {
+      const result = current.layout ? removeTile(current.layout, id) : undefined;
+      if (!result) return current;
+      return {
+        layout: result.layout,
+        removed: [...current.removed.filter((item) => item.tile.id !== id), result.removed],
+      };
+    });
+  }, []);
+
+  const handleRestoreTile = (id: string): void => {
+    setState((current) => {
+      const item = current.removed.find((candidate) => candidate.tile.id === id);
+      if (!item || !current.layout) return current;
+      return { layout: restoreTile(current.layout, item), removed: current.removed.filter((other) => other !== item) };
+    });
+  };
+
+  const handleFlexChange = (id: string, flex: TileFlex): void => {
+    setState((current) => ({ ...current, layout: current.layout && withFlex(current.layout, id, flex) }));
+  };
+
+  const tileActions = useMemo(() => ({ removeTile: handleRemoveTile }), [handleRemoveTile]);
 
   const handleSchemeChange = (event: ChangeEvent<HTMLSelectElement>): void => {
     const next = event.target.value === "light" ? "light" : "dark";
@@ -102,6 +155,17 @@ export function App() {
           <ColorControl label="Divider" value={theme.dividerColor} onChange={handleThemeChange("dividerColor")} />
         </fieldset>
 
+        {layout && cards.length > 0 ? (
+          <CardControls
+            cards={cards}
+            layout={layout}
+            removed={removed}
+            onRemove={handleRemoveTile}
+            onRestore={handleRestoreTile}
+            onFlexChange={handleFlexChange}
+          />
+        ) : null}
+
         <div className="demo-json">
           <textarea
             aria-label="Layout JSON"
@@ -123,7 +187,9 @@ export function App() {
 
       <main className="demo-main">
         {layout ? (
-          <Workspace layout={layout} modules={MODULES} theme={workspaceTheme} onLayoutChange={handleLayoutChange} />
+          <TileActionsContext value={tileActions}>
+            <Workspace layout={layout} modules={MODULES} theme={workspaceTheme} onLayoutChange={handleLayoutChange} />
+          </TileActionsContext>
         ) : null}
       </main>
     </div>

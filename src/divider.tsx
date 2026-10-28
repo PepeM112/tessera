@@ -6,6 +6,7 @@ interface DividerProps {
   direction: SplitDirection;
   label: string;
   isDragging: boolean;
+  isEntering: boolean;
   onPointerDown: (index: number, event: PointerEvent) => void;
   onKeyDown: (index: number, event: KeyboardEvent) => void;
   onDoubleClick: () => void;
@@ -17,6 +18,7 @@ export function Divider({
   direction,
   label,
   isDragging,
+  isEntering,
   onPointerDown,
   onKeyDown,
   onDoubleClick,
@@ -35,6 +37,7 @@ export function Divider({
       className="tessera-divider"
       data-resizable=""
       data-dragging={isDragging ? "" : undefined}
+      data-entering={isEntering ? "" : undefined}
       onPointerDown={handlePointerDown}
       onKeyDown={handleKeyDown}
       onDoubleClick={onDoubleClick}

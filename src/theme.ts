@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 /** Any CSS value. A number is px. */
-type CssValue = string | number;
+export type CssValue = string | number;
 
 /**
  * Each key is set as a `--tessera-*` CSS variable on the Workspace root, so plain CSS can set the same values.
@@ -14,7 +14,17 @@ export interface WorkspaceTheme {
   radius?: CssValue;
   tileBackground?: string;
   tileBorder?: string;
+  /** Shadow of a tile with no `elevation`. */
   tileShadow?: string;
+  /** The shadows of tile `elevation` 1 to 4. */
+  elevation1?: string;
+  elevation2?: string;
+  elevation3?: string;
+  elevation4?: string;
+  /** CSS time, for example `"240ms"`. */
+  transitionDuration?: string;
+  /** CSS easing function, for example `"ease-out"`. */
+  transitionEasing?: string;
   dividerColor?: string;
   /** Colour of a resizable divider on hover, focus and drag. */
   dividerActiveColor?: string;
@@ -30,6 +40,12 @@ const THEME_VARIABLES = {
   tileBackground: "--tessera-tile-background",
   tileBorder: "--tessera-tile-border",
   tileShadow: "--tessera-tile-shadow",
+  elevation1: "--tessera-elevation-1",
+  elevation2: "--tessera-elevation-2",
+  elevation3: "--tessera-elevation-3",
+  elevation4: "--tessera-elevation-4",
+  transitionDuration: "--tessera-transition-duration",
+  transitionEasing: "--tessera-transition-easing",
   dividerColor: "--tessera-divider-color",
   dividerActiveColor: "--tessera-divider-active-color",
 } as const satisfies Record<keyof WorkspaceTheme, `--tessera-${string}`>;
@@ -44,7 +60,7 @@ export function themeToStyle(theme: WorkspaceTheme | undefined): CSSProperties {
   }, {});
 }
 
-function toCssValue(value: CssValue): string {
+export function toCssValue(value: CssValue): string {
   return typeof value === "number" ? `${value}px` : value;
 }
 

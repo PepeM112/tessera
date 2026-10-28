@@ -1,3 +1,4 @@
+import { Card } from "./card";
 import { ItemList } from "./item-list";
 import { Note } from "./note";
 import { SizeReadout } from "./size-readout";
@@ -8,4 +9,5 @@ export const MODULES = {
   note: Note,
   swatch: Swatch,
   list: ItemList,
+  card: Card,
 };
