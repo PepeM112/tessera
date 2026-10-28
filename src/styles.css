@@ -35,10 +35,20 @@
   position: relative;
   display: grid;
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
-  overflow: hidden;
+  /* `clip`, not `hidden`: the tile must not scroll (focus or scrollIntoView), so the ::after border stays in place. */
+  overflow: clip;
   background: var(--tessera-tile-background, Canvas);
-  border: var(--tessera-tile-border, 1px solid color-mix(in srgb, CanvasText 15%, transparent));
   box-shadow: var(--tessera-tile-shadow, none);
+}
+
+/* The border is an overlay, so it is not part of the flex base size and shares keep their exact ratio. */
+.tessera-module::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: var(--tessera-tile-border, 1px solid color-mix(in srgb, CanvasText 15%, transparent));
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 /* The divider is the gap between two tiles, so the layout math is the same as CSS flexbox with `gap`. */

@@ -203,8 +203,7 @@ describe("Workspace", () => {
       },
     };
     const gap = 12;
-    // The default tile border adds 2px to the flex base size of a share, so the shares are not exactly 1:2.
-    renderInFrame(<Workspace layout={layout} modules={MODULES} theme={{ gap, padding: 0, tileBorder: "none" }} />);
+    renderInFrame(<Workspace layout={layout} modules={MODULES} theme={{ gap, padding: 0 }} />);
 
     const rootFontPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
     const context: LengthContext = {
@@ -225,7 +224,35 @@ describe("Workspace", () => {
     };
 
     Object.entries(expected).forEach(([label, width]) => {
-      expect(tileOf(label).getBoundingClientRect().width).toBeCloseTo(width, 1);
+      // Chromium lays out in 1/64px units, so a width can be up to 0.008px off the exact value.
+      expect(Math.abs(tileOf(label).getBoundingClientRect().width - width), `${label} tile width`).toBeLessThan(0.01);
     });
+  });
+
+  it("does not scroll the tile when a focused element is below the fold", () => {
+    const layout: Layout = { root: { module: "tall", props: {} } };
+    const Tall = () => (
+      <div style={{ height: 2000 }}>
+        <button type="button" style={{ marginTop: 1500 }}>
+          Bottom
+        </button>
+      </div>
+    );
+    renderInFrame(<Workspace layout={layout} modules={{ tall: Tall }} />);
+
+    screen.getByRole("button", { name: "Bottom" }).focus();
+
+    expect(document.querySelector<HTMLElement>(".tessera-module")?.scrollTop).toBe(0);
+  });
+
+  it("draws the tile border from the tileBorder theme value", () => {
+    const layout: Layout = { root: { module: "note", props: { label: "Solo" } } };
+    const borderWidthOf = (): string => getComputedStyle(tileOf("Solo"), "::after").borderTopWidth;
+
+    const { rerender } = renderInFrame(<Workspace layout={layout} modules={MODULES} />);
+    expect(borderWidthOf()).toBe("1px");
+
+    rerender(<Workspace layout={layout} modules={MODULES} theme={{ tileBorder: "3px solid red" }} />);
+    expect(borderWidthOf()).toBe("3px");
   });
 });

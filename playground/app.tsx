@@ -1,6 +1,6 @@
-import { useState, type ChangeEvent } from "react";
+import { useMemo, useState, type ChangeEvent } from "react";
 
-import { Workspace, type Layout, type WorkspaceTheme } from "tessera";
+import { parseLayout, Workspace, type Layout, type WorkspaceTheme } from "tessera";
 
 import { EXAMPLES, type Example } from "./layouts";
 import { MODULES } from "./modules";
@@ -25,15 +25,34 @@ const INITIAL_THEME: ThemeState = { gap: 8, radius: 8, padding: 8, ...SCHEME_COL
 
 const [FIRST_EXAMPLE] = EXAMPLES;
 
+const JSON_ERRORS_ID = "layout-json-errors";
+
+type JsonLayoutResult = { layout: Layout } | { errors: string[] };
+
 export function App() {
   const [example, setExample] = useState<Example | undefined>(FIRST_EXAMPLE);
-  const [output, setOutput] = useState<Layout | undefined>(FIRST_EXAMPLE?.layout);
+  const [layout, setLayout] = useState<Layout | undefined>(FIRST_EXAMPLE?.layout);
+  const [text, setText] = useState<string>(() => formatLayout(FIRST_EXAMPLE?.layout));
+  const errors = useMemo(() => errorsOf(text), [text]);
   const [scheme, setScheme] = useState<ColorScheme>("dark");
   const [theme, setTheme] = useState<ThemeState>(INITIAL_THEME);
 
   const handleSelect = (next: Example): void => {
     setExample(next);
-    setOutput(next.layout);
+    // A new object, so the Workspace resets the sizes: it resets only when the layout reference changes.
+    setLayout({ ...next.layout });
+    setText(formatLayout(next.layout));
+  };
+
+  const handleJsonChange = (event: ChangeEvent<HTMLTextAreaElement>): void => {
+    const next = event.target.value;
+    const result = parseJsonLayout(next);
+    setText(next);
+    if ("layout" in result) setLayout(result.layout);
+  };
+
+  const handleLayoutChange = (next: Layout): void => {
+    setText(formatLayout(next));
   };
 
   const handleSchemeChange = (event: ChangeEvent<HTMLSelectElement>): void => {
@@ -83,18 +102,51 @@ export function App() {
           <ColorControl label="Divider" value={theme.dividerColor} onChange={handleThemeChange("dividerColor")} />
         </fieldset>
 
-        <pre className="demo-json" aria-label="Layout JSON">
-          {JSON.stringify(output, null, 2)}
-        </pre>
+        <div className="demo-json">
+          <textarea
+            aria-label="Layout JSON"
+            aria-invalid={errors.length > 0}
+            aria-describedby={errors.length > 0 ? JSON_ERRORS_ID : undefined}
+            spellCheck={false}
+            value={text}
+            onChange={handleJsonChange}
+          />
+          {errors.length > 0 ? (
+            <ul id={JSON_ERRORS_ID} className="demo-json-errors">
+              {errors.map((error) => (
+                <li key={error}>{error}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       </aside>
 
       <main className="demo-main">
-        {example ? (
-          <Workspace layout={example.layout} modules={MODULES} theme={workspaceTheme} onLayoutChange={setOutput} />
+        {layout ? (
+          <Workspace layout={layout} modules={MODULES} theme={workspaceTheme} onLayoutChange={handleLayoutChange} />
         ) : null}
       </main>
     </div>
   );
+}
+
+function formatLayout(layout: Layout | undefined): string {
+  return layout ? JSON.stringify(layout, null, 2) : "";
+}
+
+function errorsOf(text: string): string[] {
+  const result = parseJsonLayout(text);
+  return "errors" in result ? result.errors : [];
+}
+
+function parseJsonLayout(text: string): JsonLayoutResult {
+  try {
+    const result = parseLayout(JSON.parse(text));
+    if (result.ok) return { layout: result.layout };
+    return { errors: result.errors.map(({ path, message }) => `${path}: ${message}`) };
+  } catch (error: unknown) {
+    return { errors: [error instanceof Error ? error.message : "Invalid JSON"] };
+  }
 }
 
 interface RangeControlProps {

@@ -82,13 +82,38 @@ body {
 }
 
 .demo-json {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.demo-json textarea {
   flex: 1;
   min-height: 0;
-  margin: 0;
   padding: 8px;
-  overflow: auto;
+  resize: none;
+  border: 1px solid transparent;
   border-radius: 6px;
   background: color-mix(in srgb, CanvasText 6%, transparent);
+  color: inherit;
+  font:
+    11px / 1.4 ui-monospace,
+    monospace;
+  white-space: pre;
+}
+
+.demo-json textarea[aria-invalid="true"] {
+  border-color: #e5484d;
+}
+
+.demo-json-errors {
+  max-height: 96px;
+  margin: 0;
+  padding: 0 0 0 16px;
+  overflow: auto;
+  color: #e5484d;
   font-size: 11px;
 }
 

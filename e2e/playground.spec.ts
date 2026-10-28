@@ -29,11 +29,10 @@ async function boxOf(locator: Locator): Promise<Box> {
   return box;
 }
 
-// The min-width keeps a tile at or above its minSize. The 2px tile border adds up to 2px to the flex base size of a
-// share, so a tile that is pushed to its minimum ends up to 2px above it.
+// A drag commits shares rounded to 3 decimals (size.ts), which is up to about 0.3px at this width.
 function expectAtMinSize(width: number, minSize: number): void {
   expect(width).toBeGreaterThanOrEqual(minSize);
-  expect(width).toBeLessThan(minSize + 2);
+  expect(width).toBeLessThan(minSize + 0.5);
 }
 
 async function openExample(page: Page, title: string): Promise<void> {
@@ -57,8 +56,8 @@ function nextFrames(page: Page): Promise<void> {
 }
 
 async function readJson(page: Page): Promise<JsonTile> {
-  const text = await page.getByLabel("Layout JSON").textContent();
-  const parsed: unknown = JSON.parse(text ?? "null");
+  const text = await page.getByLabel("Layout JSON").inputValue();
+  const parsed: unknown = JSON.parse(text);
   if (typeof parsed !== "object" || parsed === null || !("root" in parsed)) throw new Error("Not a layout");
   // SAFETY: the playground shows the layout it renders, and the tests only read size and children.
   return parsed.root as JsonTile;
@@ -76,9 +75,8 @@ test.describe("Sidebar", () => {
 
     const checkLayout = async (): Promise<void> => {
       expect((await boxOf(nav)).width).toBeCloseTo(240, 1);
-      // The 2px tile border is part of the flex base size, so the ratio is a little below 3.
       const ratio = (await boxOf(main)).height / (await boxOf(info)).height;
-      expect(Math.abs(ratio - 3)).toBeLessThan(0.05);
+      expect(ratio).toBeCloseTo(3, 2);
     };
 
     await checkLayout();
@@ -110,8 +108,7 @@ test.describe("Units", () => {
       Object.keys(expected).map(async (label) => (await boxOf(tileWith(page, label))).width),
     );
     Object.entries(expected).forEach(([label, width], i) => {
-      // Less than 1px apart: the tile border moves the share boundaries by about 0.7px.
-      expect(Math.abs(widths[i] - width), `${label} tile width`).toBeLessThan(1);
+      expect(widths[i], `${label} tile width`).toBeCloseTo(width, 1);
     });
   });
 });
@@ -182,6 +179,98 @@ test.describe("Playground", () => {
   test("lists every example that the console tests cover", async ({ page }) => {
     const buttons = page.getByRole("navigation", { name: "Layouts" }).getByRole("button");
     await expect(buttons).toHaveText(EXAMPLE_TITLES);
+  });
+});
+
+test.describe("JSON editor", () => {
+  const editor = (page: Page): Locator => page.getByLabel("Layout JSON");
+  const infoShare = /"size": 1(?=\s*\n)/;
+
+  const mainToInfoRatio = async (page: Page): Promise<number> =>
+    (await boxOf(tileWith(page, "Main"))).height / (await boxOf(tileWith(page, "Info"))).height;
+
+  test("a valid edit changes the tile sizes at once and keeps the text as typed", async ({ page }) => {
+    expect(await mainToInfoRatio(page)).toBeCloseTo(3, 2);
+
+    const edited = (await editor(page).inputValue()).replace(infoShare, '"size":   3');
+    await editor(page).fill(edited);
+
+    expect(await mainToInfoRatio(page)).toBeCloseTo(1, 2);
+    await expect(editor(page)).toHaveValue(edited);
+    await expect(editor(page)).toHaveAttribute("aria-invalid", "false");
+  });
+
+  test("shows the errors, keeps the last valid layout and recovers when the text is fixed", async ({ page }) => {
+    const valid = await editor(page).inputValue();
+    const errors = page.locator("#layout-json-errors");
+
+    await editor(page).fill(valid.slice(0, -2));
+    await expect(editor(page)).toHaveAttribute("aria-invalid", "true");
+    await expect(editor(page)).toHaveAttribute("aria-describedby", "layout-json-errors");
+    await expect(errors.getByRole("listitem")).toHaveCount(1);
+    expect(await mainToInfoRatio(page)).toBeCloseTo(3, 2);
+
+    await editor(page).fill(valid.replace(infoShare, '"size": -1'));
+    await expect(errors).toContainText("root.children[1].children[1].size");
+    await expect(editor(page)).toHaveAttribute("aria-invalid", "true");
+    expect(await mainToInfoRatio(page)).toBeCloseTo(3, 2);
+
+    await editor(page).fill(valid.replace(infoShare, '"size": 3'));
+    await expect(errors).toHaveCount(0);
+    await expect(editor(page)).toHaveAttribute("aria-invalid", "false");
+    expect(await mainToInfoRatio(page)).toBeCloseTo(1, 2);
+  });
+
+  test("a drag after an edit writes the new sizes into the editor", async ({ page }) => {
+    await editor(page).fill((await editor(page).inputValue()).replace(infoShare, '"size": 3'));
+    const before = await editor(page).inputValue();
+
+    await dragBy(page, page.locator('[role="separator"][aria-orientation="horizontal"]'), 0, 60);
+
+    await expect(editor(page)).not.toHaveValue(before);
+    const [main, info] = (await readJson(page)).children?.[1]?.children ?? [];
+    expect(Number(main?.size) / Number(info?.size)).toBeLessThan(3);
+  });
+
+  test("selecting the same example again resets the sizes and the editor text", async ({ page }) => {
+    await dragBy(page, page.locator('[role="separator"][aria-orientation="horizontal"]'), 0, 60);
+    await expect(async () => {
+      expect(await mainToInfoRatio(page)).toBeGreaterThan(3.2);
+    }).toPass();
+
+    await openExample(page, "Sidebar");
+
+    expect(await mainToInfoRatio(page)).toBeCloseTo(3, 2);
+    const [main, info] = (await readJson(page)).children?.[1]?.children ?? [];
+    expect([main?.size, info?.size]).toEqual([3, 1]);
+  });
+
+  test("selecting an example replaces the editor text and clears the errors", async ({ page }) => {
+    await editor(page).fill("{");
+    await expect(editor(page)).toHaveAttribute("aria-invalid", "true");
+
+    await openExample(page, "Single tile");
+    await expect(editor(page)).toHaveAttribute("aria-invalid", "false");
+    expect(JSON.parse(await editor(page).inputValue())).toHaveProperty("root");
+    await expect(editor(page)).not.toHaveValue("{");
+  });
+
+  test("logs no console errors or warnings while typing", async ({ page }) => {
+    const problems: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error" || message.type() === "warning") problems.push(message.text());
+    });
+    page.on("pageerror", (error) => problems.push(error.message));
+
+    await editor(page).press("Control+End");
+    await editor(page).pressSequentially("   x");
+    await editor(page).press("Backspace");
+    await editor(page).press("Backspace");
+    await editor(page).press("Backspace");
+    await editor(page).press("Backspace");
+
+    await nextFrames(page);
+    expect(problems).toEqual([]);
   });
 });
 
