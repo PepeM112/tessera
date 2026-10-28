@@ -158,6 +158,26 @@ test.describe("Nested resizable", () => {
   });
 });
 
+test.describe("Fed-back layout", () => {
+  test("a drag shows the new sizes in the editor, and a double-click resets to the example sizes", async ({ page }) => {
+    await openExample(page, "Nested resizable");
+    const divider = page.locator('[role="separator"][aria-orientation="vertical"]');
+    const left = tileWith(page, "Left");
+    const widthBefore = (await boxOf(left)).width;
+    const jsonBefore = await readJson(page);
+
+    await dragBy(page, divider, 100, 0);
+    await expect.poll(async () => (await boxOf(left)).width).toBeGreaterThan(widthBefore + 99);
+    await nextFrames(page);
+    expect(Math.abs((await boxOf(left)).width - (widthBefore + 100))).toBeLessThan(1);
+    expect(await readJson(page)).not.toEqual(jsonBefore);
+
+    await divider.dblclick();
+    await expect.poll(async () => Math.abs((await boxOf(left)).width - widthBefore)).toBeLessThan(0.5);
+    expect(await readJson(page)).toEqual(jsonBefore);
+  });
+});
+
 test.describe("Theme", () => {
   test("a gap change updates the CSS variable and the tile positions", async ({ page }) => {
     const workspace = page.locator(".tessera-workspace");

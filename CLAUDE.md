@@ -83,6 +83,8 @@ docs/                  -> Public docs, one per area
 - **Lookup tables over conditionals** for long `if/else` or `switch` chains.
 - **Orchestrator pattern.** A main function calls smaller atomic functions.
 - **Do not export** a function unless another file needs it.
+- **Complex rules go in a pure module** with a thin hook around it, so you can test the rules without React (`tile-presence.ts` + `use-tile-presence.ts`).
+- **No ticket IDs** (`TES-n`) in code, comments or test names. Describe the behavior. IDs go in commits and PRs.
 
 ## TypeScript Standards
 
@@ -91,6 +93,7 @@ docs/                  -> Public docs, one per area
 - No native `enum`. Use string unions or `as const`.
 - Avoid `as`. Prefer type guards and `satisfies`. If `as` is necessary, add a `// SAFETY:` comment. Never `as any`, `as unknown as T` or `@ts-ignore`.
 - Explicit types where they help readability (function returns, public API).
+- **Generics for reusable helpers**, so the types of the input stay in the output. No `any` or a wide type.
 - Type tests for `defineLayout` live in `src/define-layout.typecheck.ts` (`@ts-expect-error` cases). The type-check runs them.
 
 ## Error Handling

@@ -52,6 +52,25 @@ export function App() {
 - [Layout](docs/layout.md): the config, sizes, appearance, windows, spacer, `defineLayout`, `parseLayout`.
 - [Workspace](docs/workspace.md): props, theme, resizing, animation, `useTile`, state.
 
+## Install from a local path
+
+Use this to install Tessera from a folder on your machine.
+
+```sh
+cd ../tessera && make build        # the package exports point to dist/
+cd ../my-app && npm install file:../tessera
+```
+
+If the app uses Vite, set `resolve.dedupe` so the app and Tessera share one React copy:
+
+```ts
+export default defineConfig({
+  resolve: { dedupe: ["react", "react-dom"] },
+});
+```
+
+Run `make build` again after each change in Tessera.
+
 ## Development
 
 ```sh
