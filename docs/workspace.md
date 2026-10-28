@@ -39,6 +39,7 @@ Each `theme` key sets a `--tessera-*` CSS variable on the root element. A number
 | `dividerActiveColor` | `--tessera-divider-active-color` | `Highlight` (hover, focus and drag of a resizable divider) |
 
 - The defaults use CSS system colours, so they follow the page `color-scheme` (dark or light).
+- The tile border is drawn on top of the module. It does not take space.
 - Tessera styles only its own elements (`.tessera-*`), never the module content.
 
 ## Resizing
